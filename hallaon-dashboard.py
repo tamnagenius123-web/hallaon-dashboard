@@ -477,7 +477,7 @@ if menu == "📋 2026 한라온":
             업무명 = st.text_input("업무명")
             담당자 = st.text_input("담당자")
         with c2:
-            팀 = st.multiselect("팀", TEAM_OPTIONS, default=["PM"])
+            팀 = st.multiselect("팀", TEAM_OPTIONS, default=[])  # 기본값 삭제 완료!
             상태 = st.selectbox("상태", TASK_STATUS_OPTIONS, index=0)
         with c3:
             시작일 = st.date_input("시작일", value=date.today())
@@ -644,7 +644,7 @@ elif menu == "🗂️ 안건":
         with c1:
             안건명 = st.text_input("안건명")
         with c2:
-            팀 = st.multiselect("팀", TEAM_OPTIONS, default=["PM"])
+            팀 = st.multiselect("팀", TEAM_OPTIONS, default=[])  # 기본값 삭제 완료!
         with c3:
             입안자 = st.text_input("입안자")
         with c4:
