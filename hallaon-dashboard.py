@@ -129,8 +129,6 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   color: #f4f8ff !important;
 }
 
-st.markdown("""
-<style>
 /* Date input popover dark fix (global) */
 [data-baseweb="popover"] [data-baseweb="calendar"],
 [data-baseweb="calendar"] {
@@ -159,8 +157,6 @@ st.markdown("""
   color: #ffffff !important;
   border-radius: 999px !important;
 }
-</style>
-""", unsafe_allow_html=True)
 
 </style>
 """, unsafe_allow_html=True)
