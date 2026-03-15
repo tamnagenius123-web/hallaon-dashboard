@@ -99,6 +99,11 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff;
 }
 
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
 /* DataEditor column menu / toolbar popover dark fix */
 [data-testid="stDataFrame"] [data-baseweb="popover"] > div,
 [data-testid="stDataFrame"] [role="menu"],
@@ -128,7 +133,11 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   border: 1px solid #35558e !important;
   color: #f4f8ff !important;
 }
+</style>
+""", unsafe_allow_html=True)
 
+st.markdown("""
+<style>
 /* Date input popover dark fix (global) */
 [data-baseweb="popover"] [data-baseweb="calendar"],
 [data-baseweb="calendar"] {
@@ -157,9 +166,10 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   color: #ffffff !important;
   border-radius: 999px !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
+
+
 
 # =========================
 # Utils
