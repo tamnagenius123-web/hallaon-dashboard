@@ -98,6 +98,70 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700;
   border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff;
 }
+
+/* DataEditor column menu / toolbar popover dark fix */
+[data-testid="stDataFrame"] [data-baseweb="popover"] > div,
+[data-testid="stDataFrame"] [role="menu"],
+[data-testid="stDataFrame"] [role="listbox"] {
+  background: #121d34 !important;
+  border: 1px solid #35558e !important;
+  color: #f4f8ff !important;
+}
+[data-testid="stDataFrame"] [role="menu"] *,
+[data-testid="stDataFrame"] [role="listbox"] * {
+  color: #f4f8ff !important;
+}
+[data-testid="stDataFrame"] [role="menuitem"] {
+  background: #121d34 !important;
+}
+[data-testid="stDataFrame"] [role="menuitem"]:hover {
+  background: #1f3563 !important;
+}
+[data-testid="stDataFrame"] [aria-disabled="true"] {
+  opacity: 0.45 !important;
+}
+
+/* grid header icons + toolbar contrast */
+[data-testid="stDataFrame"] [class*="toolbar"] button,
+[data-testid="stDataFrame"] [class*="header"] button {
+  background: #1b2d52 !important;
+  border: 1px solid #35558e !important;
+  color: #f4f8ff !important;
+}
+
+st.markdown("""
+<style>
+/* Date input popover dark fix (global) */
+[data-baseweb="popover"] [data-baseweb="calendar"],
+[data-baseweb="calendar"] {
+  background: #121d34 !important;
+  border: 1px solid #35558e !important;
+  color: #f4f8ff !important;
+}
+[data-baseweb="popover"] [data-baseweb="calendar"] *,
+[data-baseweb="calendar"] * {
+  color: #f4f8ff !important;
+}
+[data-baseweb="calendar"] table,
+[data-baseweb="calendar"] thead,
+[data-baseweb="calendar"] tbody,
+[data-baseweb="calendar"] tr,
+[data-baseweb="calendar"] td,
+[data-baseweb="calendar"] th {
+  background: #121d34 !important;
+}
+[data-baseweb="calendar"] button {
+  background: transparent !important;
+  color: #f4f8ff !important;
+}
+[data-baseweb="calendar"] [aria-selected="true"] {
+  background: #ff5c7c !important;
+  color: #ffffff !important;
+  border-radius: 999px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -478,13 +542,37 @@ if menu == "📋 2026 한라온":
                 save_csv(keep, TASKS_CSV)
                 st.success(f"{len(idx)}개 삭제 완료")
                 st.rerun()
+                
+st.markdown("### 업무 상태 일괄 수정")
+if tasks_df.empty:
+    st.info("수정할 업무가 없습니다.")
+else:
+    c1, c2, c3 = st.columns([2,1,1])
+    with c1:
+        target_task = st.selectbox("대상 업무", tasks_df["업무명"].tolist(), key="task_status_target")
+    with c2:
+        new_task_status = st.selectbox("변경 상태", TASK_STATUS_OPTIONS, key="task_status_new")
+    with c3:
+        if st.button("업무 상태 변경", type="primary", disabled=not can_edit()):
+            idx = tasks_df.index[tasks_df["업무명"] == target_task].tolist()
+            if idx:
+                tasks_df.loc[idx, "상태"] = new_task_status
+                st.session_state.tasks_df = tasks_df
+                save_csv(tasks_df, TASKS_CSV)
+                st.success("업무 상태가 변경되었습니다.")
+                st.rerun()
 
 # =========================
 # Tab 2 간트
 # =========================
 elif menu == "📊 간트 차트":
     st.header("📊 간트 차트 (Agile Tools)")
-    st.components.v1.html(render_gantt(tasks_df), height=max(700, len(tasks_df)*56 + 230), scrolling=True)
+    hide_done = st.toggle("완료 업무 숨기기", value=True)
+    gdf = tasks_df.copy()
+    if hide_done:
+        gdf = gdf[~gdf["상태"].str.contains("완료", na=False)].copy()
+    st.components.v1.html(render_gantt(gdf), height=max(700, len(gdf)*56 + 230), scrolling=True)
+
 
 # =========================
 # Tab 3 대시보드
@@ -628,6 +716,24 @@ elif menu == "🗂️ 안건":
                 st.session_state.agenda_df = keep
                 save_csv(keep, AGENDA_CSV)
                 st.success(f"{len(idx)}개 삭제 완료")
+                st.rerun()
+st.markdown("### 안건 상태 일괄 수정")
+if agenda_df.empty:
+    st.info("수정할 안건이 없습니다.")
+else:
+    c1, c2, c3 = st.columns([2,1,1])
+    with c1:
+        target_agenda = st.selectbox("대상 안건", agenda_df["안건명"].tolist(), key="agenda_status_target")
+    with c2:
+        new_agenda_status = st.selectbox("변경 상태", AGENDA_STATUS_OPTIONS, key="agenda_status_new")
+    with c3:
+        if st.button("안건 상태 변경", type="primary", disabled=not can_edit()):
+            idx = agenda_df.index[agenda_df["안건명"] == target_agenda].tolist()
+            if idx:
+                agenda_df.loc[idx, "상태"] = new_agenda_status
+                st.session_state.agenda_df = agenda_df
+                save_csv(agenda_df, AGENDA_CSV)
+                st.success("안건 상태가 변경되었습니다.")
                 st.rerun()
 
 # =========================
