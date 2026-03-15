@@ -78,14 +78,81 @@ div[data-testid="stDataFrame"] button {
   background:#1b2d52 !important; border:1px solid #35558e !important; color:#f4f8ff !important;
 }
 
+/* ===== Overlay/Portal 계층 전역 강제 ===== */
+[data-baseweb="popover"],
+[data-baseweb="popover"] * {
+  color: #f4f8ff !important;
+}
+
+/* Select / menu / listbox */
+[data-baseweb="popover"] ul,
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="popover"] [role="menu"],
+[data-baseweb="popover"] [role="dialog"] {
+  background: #121d34 !important;
+  border: 1px solid #35558e !important;
+}
+[data-baseweb="popover"] li,
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="popover"] [role="menuitem"] {
+  background: #121d34 !important;
+  color: #f4f8ff !important;
+}
+[data-baseweb="popover"] li:hover,
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="popover"] [role="menuitem"]:hover {
+  background: #1f3563 !important;
+}
+
+/* DataEditor toolbar/menu 버튼 */
+button[aria-label*="Sort"],
+button[aria-label*="Filter"],
+button[aria-label*="Columns"],
+button[title*="Sort"],
+button[title*="Filter"],
+button[title*="Columns"] {
+  background: #1b2d52 !important;
+  border: 1px solid #35558e !important;
+  color: #f4f8ff !important;
+}
+
+/* Calendar */
+[data-baseweb="calendar"],
+[data-baseweb="calendar"] * {
+  background: #121d34 !important;
+  color: #f4f8ff !important;
+  border-color: #35558e !important;
+}
+[data-baseweb="calendar"] button {
+  background: transparent !important;
+}
+[data-baseweb="calendar"] [aria-selected="true"] {
+  background: #ff5c7c !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+}
+
+/* MultiSelect 태그(PM 잘림 방지) */
+[data-testid="stMultiSelect"] [data-baseweb="tag"] {
+  background: #ff5c7c !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 24px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span {
+  color: #fff !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  overflow: visible !important;
+}
+
 div[data-baseweb="select"] > div {
   background:#121d34 !important; border:1px solid #35558e !important; color:#f4f8ff !important;
 }
-div[data-baseweb="popover"] ul { background:#121d34 !important; border:1px solid #35558e !important; }
-div[data-baseweb="popover"] li { background:#121d34 !important; color:#f4f8ff !important; }
 
-div[data-baseweb="calendar"] { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
-div[data-baseweb="calendar"] * { color:#f4f8ff !important; }
 
 div[data-baseweb="tag"] { padding-left:8px !important; padding-right:8px !important; min-height:28px !important; }
 div[data-baseweb="tag"] span { overflow:visible !important; text-indent:0 !important; }
@@ -99,75 +166,11 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
   border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff;
 }
 
+
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<style>
-/* DataEditor column menu / toolbar popover dark fix */
-[data-testid="stDataFrame"] [data-baseweb="popover"] > div,
-[data-testid="stDataFrame"] [role="menu"],
-[data-testid="stDataFrame"] [role="listbox"] {
-  background: #121d34 !important;
-  border: 1px solid #35558e !important;
-  color: #f4f8ff !important;
-}
-[data-testid="stDataFrame"] [role="menu"] *,
-[data-testid="stDataFrame"] [role="listbox"] * {
-  color: #f4f8ff !important;
-}
-[data-testid="stDataFrame"] [role="menuitem"] {
-  background: #121d34 !important;
-}
-[data-testid="stDataFrame"] [role="menuitem"]:hover {
-  background: #1f3563 !important;
-}
-[data-testid="stDataFrame"] [aria-disabled="true"] {
-  opacity: 0.45 !important;
-}
 
-/* grid header icons + toolbar contrast */
-[data-testid="stDataFrame"] [class*="toolbar"] button,
-[data-testid="stDataFrame"] [class*="header"] button {
-  background: #1b2d52 !important;
-  border: 1px solid #35558e !important;
-  color: #f4f8ff !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-/* Date input popover dark fix (global) */
-[data-baseweb="popover"] [data-baseweb="calendar"],
-[data-baseweb="calendar"] {
-  background: #121d34 !important;
-  border: 1px solid #35558e !important;
-  color: #f4f8ff !important;
-}
-[data-baseweb="popover"] [data-baseweb="calendar"] *,
-[data-baseweb="calendar"] * {
-  color: #f4f8ff !important;
-}
-[data-baseweb="calendar"] table,
-[data-baseweb="calendar"] thead,
-[data-baseweb="calendar"] tbody,
-[data-baseweb="calendar"] tr,
-[data-baseweb="calendar"] td,
-[data-baseweb="calendar"] th {
-  background: #121d34 !important;
-}
-[data-baseweb="calendar"] button {
-  background: transparent !important;
-  color: #f4f8ff !important;
-}
-[data-baseweb="calendar"] [aria-selected="true"] {
-  background: #ff5c7c !important;
-  color: #ffffff !important;
-  border-radius: 999px !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 
 
