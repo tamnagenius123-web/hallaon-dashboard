@@ -539,24 +539,24 @@ if menu == "📋 2026 한라온":
                 st.success(f"{len(idx)}개 삭제 완료")
                 st.rerun()
                 
-st.markdown("### 업무 상태 일괄 수정")
-if tasks_df.empty:
-    st.info("수정할 업무가 없습니다.")
-else:
-    c1, c2, c3 = st.columns([2,1,1])
-    with c1:
-        target_task = st.selectbox("대상 업무", tasks_df["업무명"].tolist(), key="task_status_target")
-    with c2:
-        new_task_status = st.selectbox("변경 상태", TASK_STATUS_OPTIONS, key="task_status_new")
-    with c3:
-        if st.button("업무 상태 변경", type="primary", disabled=not can_edit()):
-            idx = tasks_df.index[tasks_df["업무명"] == target_task].tolist()
-            if idx:
-                tasks_df.loc[idx, "상태"] = new_task_status
-                st.session_state.tasks_df = tasks_df
-                save_csv(tasks_df, TASKS_CSV)
-                st.success("업무 상태가 변경되었습니다.")
-                st.rerun()
+    st.markdown("### 업무 상태 일괄 수정")
+    if tasks_df.empty:
+        st.info("수정할 업무가 없습니다.")
+    else:
+        c1, c2, c3 = st.columns([2,1,1])
+        with c1:
+            target_task = st.selectbox("대상 업무", tasks_df["업무명"].tolist(), key="task_status_target")
+        with c2:
+            new_task_status = st.selectbox("변경 상태", TASK_STATUS_OPTIONS, key="task_status_new")
+        with c3:
+            if st.button("업무 상태 변경", type="primary", disabled=not can_edit()):
+                idx = tasks_df.index[tasks_df["업무명"] == target_task].tolist()
+                if idx:
+                    tasks_df.loc[idx, "상태"] = new_task_status
+                    st.session_state.tasks_df = tasks_df
+                    save_csv(tasks_df, TASKS_CSV)
+                    st.success("업무 상태가 변경되었습니다.")
+                    st.rerun()
 
 # =========================
 # Tab 2 간트
@@ -713,24 +713,24 @@ elif menu == "🗂️ 안건":
                 save_csv(keep, AGENDA_CSV)
                 st.success(f"{len(idx)}개 삭제 완료")
                 st.rerun()
-st.markdown("### 안건 상태 일괄 수정")
-if agenda_df.empty:
-    st.info("수정할 안건이 없습니다.")
-else:
-    c1, c2, c3 = st.columns([2,1,1])
-    with c1:
-        target_agenda = st.selectbox("대상 안건", agenda_df["안건명"].tolist(), key="agenda_status_target")
-    with c2:
-        new_agenda_status = st.selectbox("변경 상태", AGENDA_STATUS_OPTIONS, key="agenda_status_new")
-    with c3:
-        if st.button("안건 상태 변경", type="primary", disabled=not can_edit()):
-            idx = agenda_df.index[agenda_df["안건명"] == target_agenda].tolist()
-            if idx:
-                agenda_df.loc[idx, "상태"] = new_agenda_status
-                st.session_state.agenda_df = agenda_df
-                save_csv(agenda_df, AGENDA_CSV)
-                st.success("안건 상태가 변경되었습니다.")
-                st.rerun()
+    st.markdown("### 안건 상태 일괄 수정")
+    if agenda_df.empty:
+        st.info("수정할 안건이 없습니다.")
+    else:
+        c1, c2, c3 = st.columns([2,1,1])
+        with c1:
+            target_agenda = st.selectbox("대상 안건", agenda_df["안건명"].tolist(), key="agenda_status_target")
+        with c2:
+            new_agenda_status = st.selectbox("변경 상태", AGENDA_STATUS_OPTIONS, key="agenda_status_new")
+        with c3:
+            if st.button("안건 상태 변경", type="primary", disabled=not can_edit()):
+                idx = agenda_df.index[agenda_df["안건명"] == target_agenda].tolist()
+                if idx:
+                    agenda_df.loc[idx, "상태"] = new_agenda_status
+                    st.session_state.agenda_df = agenda_df
+                    save_csv(agenda_df, AGENDA_CSV)
+                    st.success("안건 상태가 변경되었습니다.")
+                    st.rerun()
 
 # =========================
 # Tab 5 전송
