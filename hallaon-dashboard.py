@@ -81,14 +81,62 @@ div[data-testid="stDataFrame"] button {
 div[data-baseweb="select"] > div {
   background:#121d34 !important; border:1px solid #35558e !important; color:#f4f8ff !important;
 }
-div[data-baseweb="popover"] ul { background:#121d34 !important; border:1px solid #35558e !important; }
-div[data-baseweb="popover"] li { background:#121d34 !important; color:#f4f8ff !important; }
+/* MultiSelect tag clipping fix */
+[data-testid="stMultiSelect"] [data-baseweb="tag"] {
+  background: #ff5c7c !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 24px !important;
+  padding: 0 6px 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  text-indent: 0 !important;
+  overflow: visible !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
+  width: 12px !important;
+  height: 12px !important;
+  fill: #ffffff !important;
+}
+[data-testid="stMultiSelect"] [class*="valueContainer"] {
+  overflow: visible !important;
+}
 
-div[data-baseweb="calendar"] { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
-div[data-baseweb="calendar"] * { color:#f4f8ff !important; }
-
-div[data-baseweb="tag"] { padding-left:8px !important; padding-right:8px !important; min-height:28px !important; }
-div[data-baseweb="tag"] span { overflow:visible !important; text-indent:0 !important; }
+/* Date picker full dark override */
+div[data-baseweb="popover"] {
+  z-index: 99999 !important;
+}
+div[data-baseweb="calendar"] {
+  background: #121d34 !important;
+  border: 1px solid #35558e !important;
+  color: #f4f8ff !important;
+}
+div[data-baseweb="calendar"] * {
+  color: #f4f8ff !important;
+}
+div[data-baseweb="calendar"] [role="grid"],
+div[data-baseweb="calendar"] table,
+div[data-baseweb="calendar"] tbody,
+div[data-baseweb="calendar"] tr,
+div[data-baseweb="calendar"] td {
+  background: #121d34 !important;
+}
+div[data-baseweb="calendar"] button {
+  background: transparent !important;
+  color: #f4f8ff !important;
+}
+div[data-baseweb="calendar"] [aria-selected="true"] {
+  background: #ff5c7c !important;
+  color: #ffffff !important;
+  border-radius: 999px !important;
+}
 
 input, textarea { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
 button[kind="primary"] { background:linear-gradient(180deg,#5b97ff 0%, #4b87f3 100%) !important; color:#fff !important; border:none !important; }
@@ -187,13 +235,18 @@ def init_data():
     save_csv(a, AGENDA_CSV)
 
 def auth_gate():
-    if EDIT_PASSWORD == "" and VIEW_PASSWORD == "":
-        st.session_state.role = "edit"
-        return
     if "role" not in st.session_state:
-        st.session_state.role = None
-    if st.session_state.role is not None:
+        st.session_state.role = "edit"
+
+    pw_mode = (EDIT_PASSWORD != "" and VIEW_PASSWORD != "")
+    st.session_state.pw_mode = pw_mode
+
+    if not pw_mode:
         return
+
+    if st.session_state.role in ("edit", "view"):
+        return
+
     st.title("🔐 로그인")
     role_choice = st.radio("권한", ["조회", "편집"], horizontal=True)
     pw = st.text_input("비밀번호", type="password")
@@ -373,12 +426,20 @@ agenda_df = st.session_state.agenda_df.copy()
 with st.sidebar:
     st.title("🏛️ Hallaon")
     role_txt = "편집" if can_edit() else "조회"
-    st.markdown(f"<span class='role-badge'>권한: {role_txt}</span>", unsafe_allow_html=True)
-    st.caption("편집: 추가/수정/삭제/전송 가능 · 조회: 보기만 가능")
+    st.markdown(f"권한: {role_txt}", unsafe_allow_html=True)
+
+    if st.session_state.get("pw_mode", False):
+        st.caption("편집: 추가/수정/삭제/전송 가능 · 조회: 보기만 가능")
+    else:
+        st.caption("비밀번호 미설정 모드: 권한 전환은 토글 방식으로 동작")
+
     c1, c2 = st.columns(2)
     with c1:
         if st.button("권한 전환"):
-            st.session_state.role = None
+            if st.session_state.get("pw_mode", False):
+                st.session_state.role = None
+            else:
+                st.session_state.role = "view" if can_edit() else "edit"
             st.rerun()
     with c2:
         if st.button("새로고침"):
