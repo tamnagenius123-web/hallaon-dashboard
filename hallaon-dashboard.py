@@ -1,581 +1,380 @@
-import streamlit as st
-import pandas as pd
+import os
+import uuid
 import requests
-from datetime import datetime, timedelta
+import pandas as pd
+import streamlit as st
 import plotly.express as px
-from html import escape
+from datetime import date
 
 st.set_page_config(page_title="Hallaon Workspace", layout="wide")
 
-NOTION_TOKEN = st.secrets.get("NOTION_TOKEN", "")
-MAIN_DATABASE_ID = st.secrets.get("MAIN_DATABASE_ID", "")
-AGENDA_DATABASE_ID = st.secrets.get("AGENDA_DATABASE_ID", "324f950c8bb880a7be9fdae9ec6f05c1")
 DISCORD_WEBHOOK_URL = st.secrets.get("DISCORD_WEBHOOK_URL", "")
 
-if not NOTION_TOKEN or not MAIN_DATABASE_ID:
-    st.error("secrets 설정이 필요합니다. NOTION_TOKEN / MAIN_DATABASE_ID를 등록하세요.")
-    st.stop()
-
-headers = {
-    "Authorization": f"Bearer {NOTION_TOKEN}",
-    "Content-Type": "application/json",
-    "Notion-Version": "2022-06-28"
-}
+TASKS_CSV = "tasks_data.csv"
+AGENDA_CSV = "agenda_data.csv"
 
 st.markdown("""
 <style>
-:root {
-  --bg: #0b1020;
-  --panel: #121a2b;
-  --card: #17213a;
-  --line: #2a3552;
-  --text: #edf2ff;
-  --muted: #9ca9c8;
-  --accent: #4f8cff;
-}
-.stApp { background: radial-gradient(1200px 600px at 10% -10%, #17213a 0%, #0b1020 50%, #090d19 100%); color: var(--text); }
-h1, h2, h3, h4, h5, h6, p, div, span, label { color: var(--text); }
-small, .caption, [data-testid="stCaptionContainer"] * { color: var(--muted) !important; }
-
+.stApp { background: #0b1220; color: #e6edf7; }
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #141b2e 0%, #111729 100%);
-  border-right: 1px solid var(--line);
+  background: #121a2b;
+  border-right: 1px solid #2b3550;
 }
-section[data-testid="stSidebar"] * { color: #e8eefc !important; }
-section[data-testid="stSidebar"] [data-baseweb="radio"] label {
-  background: #1a2440;
-  border: 1px solid #33466f;
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-}
-section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover { border-color: #5d95ff; }
+section[data-testid="stSidebar"] * { color: #e6edf7 !important; }
 
 div[data-testid="metric-container"] {
-  background: linear-gradient(180deg, #1b2746 0%, #17203a 100%) !important;
-  border: 1px solid #304268 !important;
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: #141f34 !important;
+  border: 1px solid #2b3c62 !important;
+  border-radius: 12px !important;
 }
-div[data-testid="metric-container"] * { color: #ffffff !important; }
 
+/* Expander 다크 */
 div[data-testid="stExpander"] details {
   background: #121a2b !important;
-  border: 1px solid #2d3b5f !important;
+  border: 1px solid #2b3550 !important;
   border-radius: 10px !important;
 }
 div[data-testid="stExpander"] summary {
   background: #121a2b !important;
-  color: #eaf0ff !important;
-  border-radius: 10px !important;
-}
-div[data-testid="stExpander"] details[open] summary {
-  border-bottom: 1px solid #2d3b5f !important;
-  border-radius: 10px 10px 0 0 !important;
+  color: #e6edf7 !important;
 }
 
-div[data-testid="stDataFrame"] * { color: #eaf0ff !important; }
-div[data-testid="stDataFrame"] [role="grid"] { background: #121a2b !important; }
-div[data-testid="stDataFrame"] button {
-  background: #1a2543 !important;
-  color: #eaf0ff !important;
-  border: 1px solid #33466f !important;
+/* Dataframe/DataEditor 다크 */
+div[data-testid="stDataFrame"] [role="grid"] {
+  background: #121a2b !important;
 }
-button[kind="primary"] {
-  background: linear-gradient(180deg, #4f8cff 0%, #3f7ef8 100%) !important;
-  color: white !important;
-  border: none !important;
+div[data-testid="stDataFrame"] * {
+  color: #e6edf7 !important;
+}
+
+/* Selectbox/Dropdown 흰색 버그 수정 */
+div[data-baseweb="select"] > div {
+  background: #121a2b !important;
+  border: 1px solid #30466d !important;
+  color: #e6edf7 !important;
+}
+div[data-baseweb="popover"] ul {
+  background: #121a2b !important;
+  border: 1px solid #30466d !important;
+}
+div[data-baseweb="popover"] li {
+  background: #121a2b !important;
+  color: #e6edf7 !important;
+}
+div[data-baseweb="popover"] li[aria-selected="true"] {
+  background: #1b2a47 !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-def parse_iso_date(date_str):
-    if not date_str:
-        return None
-    s = str(date_str).replace("Z", "+00:00")
+def load_df(path, cols):
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        for c in cols:
+            if c not in df.columns:
+                df[c] = ""
+        return df[cols]
+    return pd.DataFrame(columns=cols)
+
+def save_df(df, path):
+    df.to_csv(path, index=False)
+
+def send_discord(fields, title, username):
+    if not DISCORD_WEBHOOK_URL:
+        return False, "DISCORD_WEBHOOK_URL이 secrets에 없습니다."
     try:
-        if "T" in s:
-            return datetime.fromisoformat(s).date()
-        return datetime.strptime(s[:10], "%Y-%m-%d").date()
-    except Exception:
-        return None
+        for i in range(0, len(fields), 25):
+            batch = fields[i:i+25]
+            payload = {
+                "username": username,
+                "embeds": [{
+                    "title": title,
+                    "color": 3447003,
+                    "fields": batch
+                }]
+            }
+            r = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
+            if r.status_code not in (200, 204):
+                return False, f"HTTP {r.status_code}"
+        return True, "전송 완료"
+    except Exception as e:
+        return False, str(e)
 
-def notion_query_all(database_id):
-    url = f"https://api.notion.com/v1/databases/{database_id}/query"
-    out = []
-    has_more = True
-    cursor = None
-    while has_more:
-        payload = {"page_size": 100}
-        if cursor:
-            payload["start_cursor"] = cursor
-        r = requests.post(url, headers=headers, json=payload, timeout=20)
-        if r.status_code != 200:
-            try:
-                msg = r.json().get("message", r.text)
-            except Exception:
-                msg = r.text
-            raise RuntimeError(f"Notion API 오류: {msg}")
-        j = r.json()
-        out.extend(j.get("results", []))
-        has_more = j.get("has_more", False)
-        cursor = j.get("next_cursor")
-    return out
+task_cols = ["id", "작업명", "담당자", "팀", "상태", "시작일", "종료일", "sent"]
+agenda_cols = ["id", "안건명", "팀", "입안자", "입안일", "상태", "sent"]
 
-def get_title(props, keys=("작업 이름", "안건명", "Name", "이름", "제목")):
-    for k in keys:
-        p = props.get(k, {})
-        t = p.get("title", [])
-        if t:
-            return t[0].get("plain_text", "이름 없음")
-    return "이름 없음"
+if "tasks_df" not in st.session_state:
+    st.session_state.tasks_df = load_df(TASKS_CSV, task_cols)
+if "agenda_df" not in st.session_state:
+    st.session_state.agenda_df = load_df(AGENDA_CSV, agenda_cols)
 
-def get_status(props, keys=("상태", "Status")):
-    for k in keys:
-        p = props.get(k, {})
-        s = p.get("status", {})
-        if s and s.get("name"):
-            return s["name"]
-        sel = p.get("select", {})
-        if sel and sel.get("name"):
-            return sel["name"]
-    return "시작 전"
-
-def get_multi_select(props, keys=("팀", "Team")):
-    for k in keys:
-        p = props.get(k, {})
-        arr = p.get("multi_select", [])
-        if arr:
-            return [x.get("name", "미지정") for x in arr]
-    return ["미지정"]
-
-def get_people(props, keys=("입안자", "담당자", "임안자", "Owner", "Assignee")):
-    for k in keys:
-        p = props.get(k, {})
-        ppl = p.get("people", [])
-        if ppl:
-            return ", ".join([x.get("name", "알 수 없음") for x in ppl])
-    return "담당자 미정"
-
-def get_date_range(props, keys=("입안일", "마감일", "타임라인", "임안일", "날짜", "Date")):
-    for k in keys:
-        p = props.get(k, {})
-        d = p.get("date")
-        if d:
-            s = parse_iso_date(d.get("start"))
-            e = parse_iso_date(d.get("end")) if d.get("end") else s
-            if s is None:
-                continue
-            if e is None:
-                e = s
-            return s, e
-    t = datetime.now().date()
-    return t, t
-
-@st.cache_data(ttl=60)
-def fetch_main_data():
-    raw = notion_query_all(MAIN_DATABASE_ID)
-    rows = []
-    for item in raw:
-        props = item.get("properties", {})
-        page_id = item.get("id", "")
-        name = get_title(props, ("작업 이름", "Name", "이름", "제목"))
-        status = get_status(props)
-        teams = get_multi_select(props, ("팀", "Team"))
-        owner = get_people(props, ("담당자", "입안자", "Owner", "Assignee"))
-        s, e = get_date_range(props, ("마감일", "타임라인", "날짜", "Date"))
-        created = parse_iso_date(item.get("created_time"))
-        for team in teams:
-            rows.append({
-                "page_id": page_id,
-                "작업명": name,
-                "담당자": owner,
-                "팀": team,
-                "상태": status,
-                "시작일": s,
-                "종료일": e + timedelta(days=1),
-                "타임라인": f"{s.strftime('%Y-%m-%d')} → {e.strftime('%Y-%m-%d')}",
-                "생성일": created
-            })
-    return pd.DataFrame(rows)
-
-@st.cache_data(ttl=120)
-def fetch_agenda_data():
-    raw = notion_query_all(AGENDA_DATABASE_ID)
-    rows = []
-    for item in raw:
-        props = item.get("properties", {})
-        page_id = item.get("id", "")
-        name = get_title(props, ("안건명", "작업 이름", "Name", "이름", "제목"))
-        teams = get_multi_select(props, ("팀", "Team"))
-        owner = get_people(props, ("입안자", "임안자", "담당자", "Owner", "Assignee"))
-        s, _ = get_date_range(props, ("입안일", "임안일", "날짜", "Date"))
-        status = get_status(props, ("상태", "Status"))
-        rows.append({
-            "page_id": page_id,
-            "안건명": name,
-            "팀": ", ".join(teams),
-            "입안자": owner,
-            "입안일": s.strftime("%Y-%m-%d"),
-            "상태": status
-        })
-    return pd.DataFrame(rows)
-
-def build_display_df(df):
-    if df.empty:
-        return pd.DataFrame()
-    g = df.groupby(
-        ["page_id", "작업명", "담당자", "상태", "타임라인", "시작일", "종료일", "생성일"],
-        as_index=False
-    ).agg({"팀": lambda x: ", ".join(sorted(set(map(str, x))))})
-    return g.sort_values(["생성일", "시작일"], ascending=[False, True]).reset_index(drop=True)
-
-def render_notion_table(df_subset):
-    if df_subset.empty:
-        return "<div style='color:#9ca9c8;padding:10px;font-size:14px;'>항목이 없습니다.</div>"
-    html = """
-    <style>
-    .n-wrap{background:transparent;}
-    .n-table{width:100%;border-collapse:collapse;text-align:left;font-family:Inter,sans-serif;}
-    .n-table th{background:#1c2743;color:#b8c4de;font-size:12px;font-weight:700;padding:11px 14px;border-bottom:1px solid #304268;border-right:1px solid #304268;}
-    .n-table td{padding:11px 14px;border-bottom:1px solid #304268;border-right:1px solid #304268;font-size:14px;color:#e9efff;background:#121c34;}
-    .n-table th:last-child,.n-table td:last-child{border-right:none;}
-    .n-table tr:hover td{background:#162442;}
-    .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;}
-    .tag-blue{background:#dbeafe;color:#1e40af;}
-    .tag-green{background:#dcfce7;color:#166534;}
-    .tag-yellow{background:#fef3c7;color:#92400e;}
-    .tag-red{background:#fee2e2;color:#991b1b;}
-    .tag-purple{background:#ede9fe;color:#5b21b6;}
-    .tag-gray{background:#e5e7eb;color:#374151;}
-    .owner{display:flex;align-items:center;gap:7px;}
-    .av{width:22px;height:22px;border-radius:50%;background:#334155;color:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
-    </style>
-    <div class="n-wrap"><table class="n-table"><thead><tr>
-    <th style="width:280px;">태스크</th><th style="width:120px;">소유자</th><th style="width:120px;">상태</th><th style="width:90px;">팀</th><th>타임라인</th>
-    </tr></thead><tbody>
-    """
-    for _, r in df_subset.iterrows():
-        task = escape(str(r["작업명"]))
-        owner = escape(str(r["담당자"]))
-        status = escape(str(r["상태"]))
-        team = str(r["팀"])
-        first_team = escape(team.split(", ")[0] if ", " in team else team)
-        tl = escape(str(r["타임라인"]))
-        s_class = "tag-gray"
-        if "완료" in status:
-            s_class = "tag-green"
-        elif "작업" in status or "진행" in status:
-            s_class = "tag-yellow"
-        elif "막힘" in status:
-            s_class = "tag-red"
-        elif "대기" in status:
-            s_class = "tag-purple"
-        t_class = "tag-blue" if first_team == "PM" else "tag-red" if first_team == "CD" else "tag-green" if first_team == "FS" else "tag-purple" if first_team == "DM" else "tag-yellow"
-        av = escape(owner[0]) if owner else "?"
-        html += f"""
-        <tr>
-          <td style="font-weight:600;">{task}</td>
-          <td><div class="owner"><div class="av">{av}</div><span>{owner}</span></div></td>
-          <td><span class="tag {s_class}">{status}</span></td>
-          <td><span class="tag {t_class}">{first_team}</span></td>
-          <td>📅 {tl}</td>
-        </tr>
-        """
-    html += "</tbody></table></div>"
-    return html
-
-def render_gantt_html(display_df):
-    if display_df.empty:
-        return "<div style='padding:12px;color:#9ca9c8;'>표시할 일정이 없습니다.</div>"
-    min_date = display_df["시작일"].min()
-    max_date = display_df["종료일"].max()
-    timeline_start = min_date - timedelta(days=min_date.weekday())
-    days_total = (max_date - timeline_start).days + 14
-    days_total = max(days_total, 35)
-    days_total = ((days_total // 7) + 1) * 7
-    total_weeks = days_total // 7
-    timeline_end = timeline_start + timedelta(days=days_total)
-    step = 1 if total_weeks <= 12 else 2 if total_weeks <= 24 else 4
-
-    h = ""
-    h += "<style>"
-    h += ".gw{background:#121a2b;border:1px solid #304268;border-radius:10px;overflow:auto;}"
-    h += ".gt{width:100%;min-width:1200px;border-collapse:collapse;table-layout:fixed;}"
-    h += ".gt th,.gt td{border-bottom:1px solid #304268;border-right:1px solid #304268;padding:10px 10px;white-space:nowrap;font-size:12px;color:#eaf0ff;}"
-    h += ".gt th:last-child,.gt td:last-child{border-right:none;}"
-    h += ".gt th{background:#1a2744;color:#b8c4de;font-weight:700;}"
-    h += ".wk{min-width:84px;text-align:center;font-size:11px;line-height:1.2;letter-spacing:.1px;}"
-    h += ".tl{padding:0 !important;position:relative;}"
-    h += ".bg{position:absolute;inset:0;display:flex;pointer-events:none;}"
-    h += ".col{flex:1;border-right:1px solid #304268;}"
-    h += ".col:last-child{border-right:none;}"
-    h += ".barw{position:relative;height:52px;display:flex;align-items:center;}"
-    h += ".bar{position:absolute;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:white;overflow:hidden;text-overflow:ellipsis;}"
-    h += ".badge{padding:3px 8px;border-radius:999px;font-weight:700;color:white;font-size:11px;display:inline-block;}"
-    h += "</style>"
-    h += "<div class='gw'><table class='gt'><thead><tr>"
-    h += "<th style='width:70px;text-align:center;'>TEAM</th><th style='width:220px;'>TASK</th><th style='width:130px;'>OWNER</th><th style='width:110px;'>STATUS</th>"
-    for i in range(total_weeks):
-        ws = timeline_start + timedelta(days=i * 7)
-        full = f"Week {i+1} ({ws.month}/{ws.day})"
-        txt = full if i % step == 0 else "·"
-        h += f"<th class='wk' title='{full}'>{txt}</th>"
-    h += "</tr></thead><tbody>"
-
-    for _, r in display_df.iterrows():
-        team_str = str(r["팀"])
-        first_team = team_str.split(", ")[0] if ", " in team_str else team_str
-        task = escape(str(r["작업명"]))
-        owner = escape(str(r["담당자"]))
-        status = escape(str(r["상태"]))
-        s = r["시작일"]
-        e = r["종료일"]
-        color = {"PM":"#3b82f6","CD":"#ef4444","FS":"#10b981","DM":"#8b5cf6","OPS":"#eab308"}.get(first_team, "#6b7280")
-        cs = max(s, timeline_start)
-        ce = min(e, timeline_end)
-        off = (cs - timeline_start).days
-        dur = max((ce - cs).days, 1)
-        left = (off / days_total) * 100
-        wid = (dur / days_total) * 100
-        bg = "".join(["<div class='col'></div>" for _ in range(total_weeks)])
-        bar_txt = "✓ Done" if "완료" in status else "In Progress" if ("진행" in status or "작업" in status) else "Scheduled"
-        h += "<tr>"
-        h += f"<td style='text-align:center;'><span class='badge' style='background:{color};'>{escape(first_team)}</span></td>"
-        h += f"<td style='font-weight:600;'>{task}</td>"
-        h += f"<td>{owner}</td>"
-        h += f"<td>{status}</td>"
-        h += f"<td colspan='{total_weeks}' class='tl'><div class='bg'>{bg}</div><div class='barw'><div class='bar' style='left:{left}%;width:{wid}%;background:{color};'>{bar_txt}</div></div></td>"
-        h += "</tr>"
-    h += "</tbody></table></div>"
-    return h
-
-try:
-    df = fetch_main_data()
-except Exception as e:
-    st.error(str(e))
-    st.stop()
-
-display_df = build_display_df(df)
-
-if "sent_to_discord_ids" not in st.session_state:
-    st.session_state.sent_to_discord_ids = set()
+tasks_df = st.session_state.tasks_df.copy()
+agenda_df = st.session_state.agenda_df.copy()
 
 with st.sidebar:
     st.title("🏛️ Hallaon")
     st.markdown("---")
-    menu = st.radio("워크스페이스 메뉴", ["📋 2026 한라온", "📊 간트 차트", "📈 대시보드", "🗂️ 안건", "🤖 최근 등록된 작업 전송"])
+    menu = st.radio(
+        "워크스페이스 메뉴",
+        ["📋 2026 한라온", "📊 간트 차트", "📈 대시보드", "🗂️ 안건", "🤖 최근 등록된 작업 전송"]
+    )
     st.markdown("---")
-    st.caption("2026 Hallaon Agile System")
+    st.caption("Local Agile Board")
 
-if menu != "🗂️ 안건" and display_df.empty:
-    st.info("데이터가 없습니다. Notion DB 연결 및 속성명을 확인해 주세요.")
-else:
-    if menu == "📋 2026 한라온":
-        st.header("📋 2026 한라온")
-        st.caption("할 일과 완료됨을 접기/펼치기로 관리할 수 있습니다.")
-        todo_df = display_df[display_df["상태"].str.contains("시작 전|대기|진행|작업|막힘", na=False)]
-        done_df = display_df[display_df["상태"].str.contains("완료", na=False)]
+if menu == "📋 2026 한라온":
+    st.header("📋 2026 한라온")
+    st.caption("노션 없이 이 페이지에서 직접 등록/수정합니다.")
+
+    with st.form("add_task_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            task_name = st.text_input("작업명")
+            owner = st.text_input("담당자")
+        with c2:
+            team = st.multiselect("팀", ["PM", "CD", "FS", "DM", "OPS"], default=["PM"])
+            status = st.selectbox("상태", ["시작 전", "대기", "진행 중", "작업 중", "막힘", "완료"], index=0)
+        with c3:
+            start_d = st.date_input("시작일", value=date.today())
+            end_d = st.date_input("종료일", value=date.today())
+        submit = st.form_submit_button("작업 추가", type="primary")
+
+    if submit and task_name.strip():
+        new_row = {
+            "id": str(uuid.uuid4()),
+            "작업명": task_name.strip(),
+            "담당자": owner.strip() if owner.strip() else "담당자 미정",
+            "팀": ", ".join(team) if team else "미지정",
+            "상태": status,
+            "시작일": pd.to_datetime(start_d).strftime("%Y-%m-%d"),
+            "종료일": pd.to_datetime(end_d).strftime("%Y-%m-%d"),
+            "sent": False
+        }
+        tasks_df = pd.concat([tasks_df, pd.DataFrame([new_row])], ignore_index=True)
+        st.session_state.tasks_df = tasks_df
+        save_df(tasks_df, TASKS_CSV)
+        st.success("작업이 추가되었습니다.")
+        st.rerun()
+
+    if tasks_df.empty:
+        st.info("등록된 작업이 없습니다.")
+    else:
+        todo_df = tasks_df[~tasks_df["상태"].str.contains("완료", na=False)].copy()
+        done_df = tasks_df[tasks_df["상태"].str.contains("완료", na=False)].copy()
+
         with st.expander(f"할 일 ({len(todo_df)}개)", expanded=True):
-            st.components.v1.html(render_notion_table(todo_df), height=max(260, len(todo_df) * 54 + 90), scrolling=True)
+            st.dataframe(todo_df[["작업명", "담당자", "상태", "팀", "시작일", "종료일"]], use_container_width=True, hide_index=True)
+
         with st.expander(f"완료됨 ({len(done_df)}개)", expanded=False):
-            st.components.v1.html(render_notion_table(done_df), height=max(220, len(done_df) * 54 + 90), scrolling=True)
+            st.dataframe(done_df[["작업명", "담당자", "상태", "팀", "시작일", "종료일"]], use_container_width=True, hide_index=True)
 
-    elif menu == "📊 간트 차트":
-        st.header("📊 프로젝트 간트 차트")
-        st.caption("반응형에서 Week 라벨 겹침을 줄이기 위해 표시 밀도 조절을 적용했습니다.")
-        g_html = render_gantt_html(display_df)
-        st.components.v1.html(g_html, height=max(620, len(display_df) * 62 + 180), scrolling=True)
+        st.markdown("#### 작업 수정")
+        edit_df = tasks_df.copy()
+        edited = st.data_editor(
+            edit_df[["작업명", "담당자", "팀", "상태", "시작일", "종료일"]],
+            num_rows="dynamic",
+            use_container_width=True,
+            hide_index=True
+        )
+        if st.button("작업 수정사항 저장"):
+            base = tasks_df.copy()
+            if len(edited) == len(base):
+                base[["작업명", "담당자", "팀", "상태", "시작일", "종료일"]] = edited
+                st.session_state.tasks_df = base
+                save_df(base, TASKS_CSV)
+                st.success("저장되었습니다.")
+                st.rerun()
+            else:
+                st.warning("행 개수 변경은 추가 폼을 사용하세요.")
 
-    elif menu == "📈 대시보드":
-        st.header("📈 2026 한라온 종합 대시보드")
-        total_tasks = len(display_df)
-        in_progress = len(display_df[display_df["상태"].str.contains("진행|작업", na=False)])
-        stuck = len(display_df[display_df["상태"].str.contains("막힘", na=False)])
-        done = len(display_df[display_df["상태"].str.contains("완료", na=False)])
+elif menu == "📊 간트 차트":
+    st.header("📊 프로젝트 간트 차트")
+    if tasks_df.empty:
+        st.info("작업 데이터가 없습니다.")
+    else:
+        g = tasks_df.copy()
+        g["시작일"] = pd.to_datetime(g["시작일"], errors="coerce")
+        g["종료일"] = pd.to_datetime(g["종료일"], errors="coerce") + pd.Timedelta(days=1)
+        g = g.dropna(subset=["시작일", "종료일"])
+        if g.empty:
+            st.info("표시 가능한 날짜 데이터가 없습니다.")
+        else:
+            fig = px.timeline(
+                g,
+                x_start="시작일",
+                x_end="종료일",
+                y="작업명",
+                color="팀",
+                hover_data=["담당자", "상태"]
+            )
+            fig.update_yaxes(autorange="reversed")
+            fig.update_layout(
+                template="plotly_dark",
+                height=760,
+                margin=dict(t=20, b=20, l=20, r=20),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+elif menu == "📈 대시보드":
+    st.header("📈 2026 한라온 종합 대시보드")
+    if tasks_df.empty:
+        st.info("작업 데이터가 없습니다.")
+    else:
+        total = len(tasks_df)
+        in_prog = len(tasks_df[tasks_df["상태"].str.contains("진행|작업", na=False)])
+        stuck = len(tasks_df[tasks_df["상태"].str.contains("막힘", na=False)])
+        done = len(tasks_df[tasks_df["상태"].str.contains("완료", na=False)])
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("📦 모든 태스크", total_tasks)
-        c2.metric("⏳ 진행 중", in_progress)
+        c1.metric("📦 모든 태스크", total)
+        c2.metric("⏳ 진행 중", in_prog)
         c3.metric("🛑 막힘", stuck)
         c4.metric("✅ 완료", done)
 
         l, r = st.columns(2)
         with l:
             st.markdown("##### 상태별 태스크")
-            status_counts = display_df["상태"].value_counts().reset_index()
-            status_counts.columns = ["상태", "개수"]
-            fig_pie = px.pie(
-                status_counts,
-                names="상태",
-                values="개수",
-                hole=0.45,
-                color="상태",
-                color_discrete_map={"완료":"#22c55e","막힘":"#ef4444","시작 전":"#6b7280","작업 중":"#f59e0b","진행 중":"#f59e0b","대기":"#8b5cf6"}
-            )
-            fig_pie.update_traces(textposition="inside", textinfo="percent+label")
-            fig_pie.update_layout(template="plotly_dark", height=360, margin=dict(t=10, b=10, l=10, r=10), showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_pie, use_container_width=True)
+            s = tasks_df["상태"].value_counts().reset_index()
+            s.columns = ["상태", "개수"]
+            fig1 = px.pie(s, names="상태", values="개수", hole=0.45)
+            fig1.update_layout(template="plotly_dark", height=360, margin=dict(t=10, b=10, l=10, r=10))
+            st.plotly_chart(fig1, use_container_width=True)
 
         with r:
             st.markdown("##### 담당자별 태스크")
-            assignee_counts = display_df["담당자"].value_counts().reset_index()
-            assignee_counts.columns = ["담당자", "개수"]
-            fig_bar = px.bar(assignee_counts, x="담당자", y="개수", text_auto=True, color_discrete_sequence=["#4f8cff"])
-            fig_bar.update_layout(template="plotly_dark", height=360, margin=dict(t=10, b=10, l=10, r=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_bar, use_container_width=True)
+            a = tasks_df["담당자"].value_counts().reset_index()
+            a.columns = ["담당자", "개수"]
+            fig2 = px.bar(a, x="담당자", y="개수", text_auto=True)
+            fig2.update_layout(template="plotly_dark", height=360, margin=dict(t=10, b=10, l=10, r=10))
+            st.plotly_chart(fig2, use_container_width=True)
 
-    elif menu == "🗂️ 안건":
-        st.header("🗂️ 안건")
-        st.caption("Notion 안건 DB를 불러와 게시합니다.")
-        try:
-            agenda_df = fetch_agenda_data()
-        except Exception as e:
-            st.error(f"안건 DB 조회 실패: {e}")
-            st.stop()
+elif menu == "🗂️ 안건":
+    st.header("🗂️ 안건")
+    st.caption("안건도 이 페이지에서 바로 등록/관리합니다.")
 
-        if agenda_df.empty:
-            st.info("안건 데이터가 없습니다.")
+    with st.form("add_agenda_form", clear_on_submit=True):
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            agenda_name = st.text_input("안건명")
+        with c2:
+            ag_team = st.multiselect("팀", ["PM", "CD", "FS", "DM", "OPS"], default=["PM"])
+        with c3:
+            proposer = st.text_input("입안자")
+        with c4:
+            agenda_date = st.date_input("입안일", value=date.today())
+        ag_status = st.selectbox("상태", ["시작 전", "진행 중", "완료", "보류"], index=0)
+        ag_submit = st.form_submit_button("안건 추가", type="primary")
+
+    if ag_submit and agenda_name.strip():
+        new_row = {
+            "id": str(uuid.uuid4()),
+            "안건명": agenda_name.strip(),
+            "팀": ", ".join(ag_team) if ag_team else "미지정",
+            "입안자": proposer.strip() if proposer.strip() else "담당자 미정",
+            "입안일": pd.to_datetime(agenda_date).strftime("%Y-%m-%d"),
+            "상태": ag_status,
+            "sent": False
+        }
+        agenda_df = pd.concat([agenda_df, pd.DataFrame([new_row])], ignore_index=True)
+        st.session_state.agenda_df = agenda_df
+        save_df(agenda_df, AGENDA_CSV)
+        st.success("안건이 추가되었습니다.")
+        st.rerun()
+
+    if agenda_df.empty:
+        st.info("안건 데이터가 없습니다.")
+    else:
+        c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+        with c1:
+            q = st.text_input("검색", placeholder="안건명 검색")
+        with c2:
+            teams = ["전체"] + sorted(agenda_df["팀"].dropna().unique().tolist())
+            team_filter = st.selectbox("팀 필터", teams, index=0)
+        with c3:
+            statuses = ["전체"] + sorted(agenda_df["상태"].dropna().unique().tolist())
+            status_filter = st.selectbox("상태 필터", statuses, index=0)
+        with c4:
+            sort_opt = st.selectbox("정렬", ["입안일 최신순", "입안일 오래된순"], index=0)
+
+        f = agenda_df.copy()
+        if q:
+            f = f[f["안건명"].str.contains(q, case=False, na=False)]
+        if team_filter != "전체":
+            f = f[f["팀"] == team_filter]
+        if status_filter != "전체":
+            f = f[f["상태"] == status_filter]
+
+        f["입안일_dt"] = pd.to_datetime(f["입안일"], errors="coerce")
+        f = f.sort_values("입안일_dt", ascending=(sort_opt == "입안일 오래된순")).drop(columns=["입안일_dt"]).reset_index(drop=True)
+
+        view = f.copy()
+        view.insert(0, "전송", False)
+
+        edited = st.data_editor(
+            view[["전송", "안건명", "팀", "입안자", "입안일", "상태"]],
+            use_container_width=True,
+            hide_index=True,
+            column_config={"전송": st.column_config.CheckboxColumn("전송")}
+        )
+
+        sel_idx = edited.index[edited["전송"] == True].tolist()
+        st.write(f"선택된 안건:{len(sel_idx)}개")
+
+        if st.button("📨 선택 안건 디스코드 전송", type="primary", disabled=(len(sel_idx) == 0)):
+            sel = f.iloc[sel_idx].copy()
+            fields = []
+            for _, r in sel.iterrows():
+                fields.append({
+                    "name": f"🗂️ {r['안건명']} ({r['팀']})",
+                    "value": f"👤 입안자: {r['입안자']}\n📅 입안일: {r['입안일']} | 🏷️ 상태: {r['상태']}",
+                    "inline": False
+                })
+            ok, msg = send_discord(fields, "📌 안건 전송", "Hallaon Agenda Bot")
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+
+elif menu == "🤖 최근 등록된 작업 전송":
+    st.header("🤖 최근 등록된 작업 전송")
+    if tasks_df.empty:
+        st.info("작업 데이터가 없습니다.")
+    else:
+        u = tasks_df[tasks_df["sent"].astype(str) != "True"].copy()
+        if u.empty:
+            st.info("미전송 작업이 없습니다.")
         else:
-            c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-            with c1:
-                q = st.text_input("검색", placeholder="안건명 검색")
-            with c2:
-                team_options = ["전체"] + sorted(agenda_df["팀"].dropna().unique().tolist())
-                team_filter = st.selectbox("팀 필터", team_options, index=0)
-            with c3:
-                status_options = ["전체"] + sorted(agenda_df["상태"].dropna().unique().tolist())
-                status_filter = st.selectbox("상태 필터", status_options, index=0)
-            with c4:
-                sort_opt = st.selectbox("정렬", ["입안일 최신순", "입안일 오래된순"], index=0)
-
-            f = agenda_df.copy()
-            if q:
-                f = f[f["안건명"].str.contains(q, case=False, na=False)]
-            if team_filter != "전체":
-                f = f[f["팀"] == team_filter]
-            if status_filter != "전체":
-                f = f[f["상태"] == status_filter]
-            f["입안일_dt"] = pd.to_datetime(f["입안일"], errors="coerce")
-            f = f.sort_values("입안일_dt", ascending=(sort_opt == "입안일 오래된순")).drop(columns=["입안일_dt"]).reset_index(drop=True)
-
-            ui = f.copy()
+            u = u.reset_index(drop=True)
+            ui = u.copy()
             ui.insert(0, "전송", False)
+
             edited = st.data_editor(
-                ui[["전송", "안건명", "팀", "입안자", "입안일", "상태"]],
+                ui[["전송", "작업명", "담당자", "상태", "팀", "시작일", "종료일"]],
                 use_container_width=True,
                 hide_index=True,
-                column_config={
-                    "전송": st.column_config.CheckboxColumn("전송"),
-                    "안건명": st.column_config.TextColumn("안건명", disabled=True),
-                    "팀": st.column_config.TextColumn("팀", disabled=True),
-                    "입안자": st.column_config.TextColumn("입안자", disabled=True),
-                    "입안일": st.column_config.TextColumn("입안일", disabled=True),
-                    "상태": st.column_config.TextColumn("상태", disabled=True),
-                }
+                column_config={"전송": st.column_config.CheckboxColumn("전송")}
             )
 
             sel_idx = edited.index[edited["전송"] == True].tolist()
-            st.write(f"선택된 안건: {len(sel_idx)}개")
-
-            if st.button("📨 선택 안건 디스코드 전송", type="primary", disabled=(len(sel_idx) == 0)):
-                if not DISCORD_WEBHOOK_URL:
-                    st.error("DISCORD_WEBHOOK_URL이 설정되지 않았습니다.")
-                else:
-                    sel = f.iloc[sel_idx].copy()
-                    fields = []
-                    for _, row in sel.iterrows():
-                        fields.append({
-                            "name": f"🗂️ {row['안건명']} ({row['팀']})",
-                            "value": f"👤 입안자: {row['입안자']}\n📅 입안일: {row['입안일']} | 🏷️ 상태: {row['상태']}",
-                            "inline": False
-                        })
-
-                    sent = 0
-                    for i in range(0, len(fields), 25):
-                        batch = fields[i:i+25]
-                        payload = {
-                            "username": "Hallaon Agenda Bot",
-                            "embeds": [{
-                                "title": "📌 안건 전송",
-                                "color": 5793266,
-                                "fields": batch,
-                                "footer": {"text": f"Hallaon Agenda • {len(batch)}개"}
-                            }]
-                        }
-                        res = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
-                        if res.status_code in (200, 204):
-                            sent += len(batch)
-                        else:
-                            st.error(f"전송 실패: HTTP {res.status_code}")
-                            break
-                    else:
-                        st.success(f"{sent}개 안건 전송 완료")
-
-    elif menu == "🤖 최근 등록된 작업 전송":
-        st.header("🤖 최근 등록된 작업 전송")
-        st.caption("미전송 작업을 선택해서 디스코드로 전송할 수 있습니다.")
-
-        if not DISCORD_WEBHOOK_URL:
-            st.warning("DISCORD_WEBHOOK_URL이 secrets에 설정되지 않았습니다.")
-            st.stop()
-
-        unsent = display_df[~display_df["page_id"].isin(st.session_state.sent_to_discord_ids)].copy()
-        if unsent.empty:
-            st.info("현재 미전송 작업이 없습니다.")
-        else:
-            unsent = unsent.sort_values(["생성일", "시작일"], ascending=[False, True]).reset_index(drop=True)
-            unsent.insert(0, "전송", False)
-
-            edited = st.data_editor(
-                unsent[["전송", "작업명", "담당자", "상태", "팀", "타임라인"]],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "전송": st.column_config.CheckboxColumn("전송"),
-                    "작업명": st.column_config.TextColumn("작업명", disabled=True),
-                    "담당자": st.column_config.TextColumn("담당자", disabled=True),
-                    "상태": st.column_config.TextColumn("상태", disabled=True),
-                    "팀": st.column_config.TextColumn("팀", disabled=True),
-                    "타임라인": st.column_config.TextColumn("타임라인", disabled=True),
-                }
-            )
-
-            sel_idx = edited.index[edited["전송"] == True].tolist()
-            selected = unsent.iloc[sel_idx].copy()
-            st.write(f"선택된 작업: {len(selected)}개")
+            selected = u.iloc[sel_idx].copy()
+            st.write(f"선택된 작업:{len(selected)}개")
 
             if st.button("🚀 선택 작업 디스코드 전송", type="primary", disabled=(len(selected) == 0)):
                 fields = []
                 for _, t in selected.iterrows():
                     fields.append({
                         "name": f"🔹 {t['작업명']} ({t['팀']})",
-                        "value": f"👤 담당: {t['담당자']}\n📅 기간: {t['타임라인']} | 🏷️ 상태: {t['상태']}",
+                        "value": f"👤 담당: {t['담당자']}\n📅 기간: {t['시작일']} → {t['종료일']} | 🏷️ 상태: {t['상태']}",
                         "inline": False
                     })
-
-                ok_ids = []
-                for i in range(0, len(fields), 25):
-                    batch_fields = fields[i:i+25]
-                    payload = {
-                        "username": "Hallaon Roadmap Bot",
-                        "embeds": [{
-                            "title": "🔔 새 작업 알림",
-                            "color": 3447003,
-                            "fields": batch_fields,
-                            "footer": {"text": f"Hallaon Agile Dashboard • {len(batch_fields)}개"}
-                        }]
-                    }
-                    res = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
-                    if res.status_code in (200, 204):
-                        s_idx = i
-                        e_idx = i + len(batch_fields)
-                        ids = selected.iloc[s_idx:e_idx]["page_id"].tolist()
-                        ok_ids.extend(ids)
-                    else:
-                        st.error(f"전송 실패: HTTP {res.status_code} / {res.text[:200]}")
-                        break
-                else:
-                    st.session_state.sent_to_discord_ids.update(ok_ids)
-                    st.success(f"{len(ok_ids)}개 작업 전송 완료")
+                ok, msg = send_discord(fields, "🔔 새 작업 알림", "Hallaon Roadmap Bot")
+                if ok:
+                    sent_ids = set(selected["id"].tolist())
+                    tasks_df["sent"] = tasks_df.apply(lambda x: True if x["id"] in sent_ids or str(x["sent"]) == "True" else False, axis=1)
+                    st.session_state.tasks_df = tasks_df
+                    save_df(tasks_df, TASKS_CSV)
+                    st.success("전송 완료")
                     st.rerun()
+                else:
+                    st.error(msg)
