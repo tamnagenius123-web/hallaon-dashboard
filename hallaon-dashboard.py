@@ -208,6 +208,88 @@ def send_discord(fields, title, username, color=3447003):
         return True, f"{sent}개 전송 완료"
     except Exception as e: return False, str(e)
 
+def render_gantt(df):
+    if df.empty:
+        return "<div style='padding:12px;color:#b5c4e3;'>표시할 업무가 없습니다.</div>"
+    g = df.copy()
+    g["시작일_dt"] = pd.to_datetime(g["시작일"], errors="coerce")
+    g["종료일_dt"] = pd.to_datetime(g["종료일"], errors="coerce")
+    g = g.dropna(subset=["시작일_dt","종료일_dt"])
+    if g.empty:
+        return "<div style='padding:12px;color:#b5c4e3;'>날짜 데이터가 유효하지 않습니다.</div>"
+
+    min_d = g["시작일_dt"].min().date()
+    max_d = g["종료일_dt"].max().date()
+    tl_start = min_d - timedelta(days=min_d.weekday())
+    days_total = max((max_d - tl_start).days + 14, 35)
+    days_total = ((days_total // 7) + 1) * 7
+    weeks = days_total // 7
+    tl_end = tl_start + timedelta(days=days_total)
+    step = 1 if weeks <= 12 else 2 if weeks <= 24 else 4
+
+    h = ""
+    h += "<style>"
+    h += ".gw{background:#101a2f;border:1px solid #2f4775;border-radius:12px;overflow:auto;box-shadow:0 10px 26px rgba(0,0,0,.25);}"
+    h += ".gh{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#13213b;border-bottom:1px solid #2f4775;}"
+    h += ".chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:7px;background:#1a2c50;border:1px solid #365a95;color:#f4f8ff;font-size:11px;font-weight:700;margin-right:8px;}"
+    h += ".dot{width:8px;height:8px;border-radius:50%;display:inline-block;}"
+    h += ".gt{width:100%;min-width:1280px;border-collapse:collapse;table-layout:fixed;}"
+    h += ".gt th,.gt td{border-right:1px solid #243a64;border-bottom:1px solid #243a64;color:#f4f8ff;padding:9px 8px;white-space:nowrap;}"
+    h += ".gt th{background:#162746;font-size:12px;font-weight:700;}"
+    h += ".wkh{min-width:92px;text-align:center;font-size:11px;color:#c9d8f4;}"
+    h += ".tl{padding:0 !important;position:relative;background:#101a2f;}"
+    h += ".bg{position:absolute;inset:0;display:flex;pointer-events:none;}"
+    h += ".bgc{flex:1;border-right:1px solid #243a64;background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00));}"
+    h += ".bgc:nth-child(even){background:linear-gradient(180deg, rgba(79,140,255,.06), rgba(79,140,255,.02));}"
+    h += ".barw{position:relative;height:44px;display:flex;align-items:center;}"
+    h += ".bar{position:absolute;height:24px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;box-shadow:0 3px 8px rgba(0,0,0,.28);}"
+    h += ".owner{display:inline-flex;align-items:center;gap:7px;}"
+    h += ".av{width:21px;height:21px;border-radius:50%;background:#30466d;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}"
+    h += "</style>"
+
+    h += "<div class='gw'><div class='gh'><div>"
+    for t, c in TEAM_COLORS.items():
+        h += f"<span class='chip'><span class='dot' style='background:{c}'></span>{t}</span>"
+    h += "</div><div style='color:#b5c4e3;font-size:12px;font-weight:700;'>간트 차트 (Agile Tools)</div></div>"
+    h += "<table class='gt'><thead><tr>"
+    h += "<th style='width:72px;text-align:center;'>TEAM</th><th style='width:230px;'>업무명</th><th style='width:130px;'>담당자</th><th style='width:110px;'>상태</th>"
+    for i in range(weeks):
+        ws = tl_start + timedelta(days=i*7)
+        full = f"Week {i+1} ({ws.month}/{ws.day}~)"
+        txt = full if i % step == 0 else "·"
+        h += f"<th class='wkh' title='{full}'>{txt}</th>"
+    h += "</tr></thead><tbody>"
+
+    for _, r in g.iterrows():
+        team = str(r["팀"]).split(",")[0].strip() if str(r["팀"]).strip() else "미지정"
+        owner = str(r["담당자"]).strip() if str(r["담당자"]).strip() else "담당자 미정"
+        status = str(r["상태"]).strip()
+        task = str(r["업무명"]).strip()
+        c = TEAM_COLORS.get(team, "#7b8599")
+
+        s = r["시작일_dt"].date()
+        e = r["종료일_dt"].date()
+        cs = max(s, tl_start)
+        ce = min(e + timedelta(days=1), tl_end)
+        off = (cs - tl_start).days
+        dur = max((ce - cs).days, 1)
+        left = (off / days_total) * 100
+        width = (dur / days_total) * 100
+        label = "✓ Done" if "완료" in status else "Blocked" if "막힘" in status else "In Progress" if ("진행" in status or "작업" in status) else "Scheduled"
+        av = owner[0] if owner else "?"
+        bg = "".join(["<div class='bgc'></div>" for _ in range(weeks)])
+
+        h += "<tr>"
+        h += f"<td style='text-align:center;'>{team_badge(team)}</td>"
+        h += f"<td style='font-weight:700;'>{escape(task)}</td>"
+        h += f"<td><span class='owner'><span class='av'>{escape(av)}</span>{escape(owner)}</span></td>"
+        h += f"<td>{status_badge(status)}</td>"
+        h += f"<td colspan='{weeks}' class='tl'><div class='bg'>{bg}</div><div class='barw'><div class='bar' style='left:{left}%;width:{width}%;background:{c};'>{escape(label)}</div></div></td>"
+        h += "</tr>"
+
+    h += "</tbody></table></div>"
+    return h
+
 # =========================
 # Init
 # =========================
@@ -317,18 +399,12 @@ elif menu == "📊 간트 차트":
     st.header("📊 간트 차트 (Agile Tools)")
     hide_done = st.toggle("완료 업무 숨기기", value=True)
     gdf = tasks_df.copy()
-    if hide_done: gdf = gdf[~gdf["상태"].str.contains("완료", na=False)].copy()
+    if hide_done: 
+        gdf = gdf[~gdf["상태"].str.contains("완료", na=False)].copy()
     
-    if not gdf.empty:
-        gdf["시작일_dt"] = pd.to_datetime(gdf["시작일"])
-        gdf["종료일_dt"] = pd.to_datetime(gdf["종료일"]) + timedelta(days=1) 
-        
-        fig = px.timeline(gdf, x_start="시작일_dt", x_end="종료일_dt", y="업무명", color="팀", hover_data=["담당자","상태"])
-        fig.update_yaxes(autorange="reversed") 
-        fig.update_layout(template="plotly_dark", height=600, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("표시할 업무가 없습니다.")
+    # HTML 수제 간트 차트 렌더링
+    import streamlit.components.v1 as components
+    components.html(render_gantt(gdf), height=max(700, len(gdf)*56 + 230), scrolling=True)
 
 # =========================
 # Tab 3 대시보드
