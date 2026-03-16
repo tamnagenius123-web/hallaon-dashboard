@@ -8,6 +8,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, date, timedelta
 from html import escape
+import streamlit.components.v1 as components  # 수제 간트차트 렌더링용 추가
 
 st.set_page_config(page_title="Hallaon Workspace", layout="wide")
 
@@ -34,7 +35,6 @@ WORKSHEET_MEETINGS = "Meetings"
 
 def get_sheet():
     client = get_gsheets_client()
-    # 이름 대신 확실한 URL로 시트를 엽니다.
     sheet_url = st.secrets.get("GSHEET_URL", "")
     if sheet_url:
         return client.open_by_url(sheet_url)
@@ -50,7 +50,7 @@ def load_gsheet_to_df(worksheet_name):
         if len(data) <= 1: return pd.DataFrame(columns=data[0] if data else [])
         return pd.DataFrame(data[1:], columns=data[0])
     except Exception as e:
-        st.error(f"'{worksheet_name}' 시트를 불러오지 못했습니다. URL과 시트 탭 이름(Tasks, Agenda, Meetings)을 확인하세요.\n오류: {e}")
+        st.error(f"'{worksheet_name}' 시트를 불러오지 못했습니다. URL과 시트 탭 이름을 확인하세요.\n오류: {e}")
         return pd.DataFrame()
 
 def save_df_to_gsheet(df, worksheet_name):
@@ -82,13 +82,12 @@ STATUS_COLORS = {
 }
 
 # =========================
-# 🎨 UI Style (펼친 탭/하얀색 배경 깨짐 완벽 픽스!)
+# 🎨 UI Style 
 # =========================
 st.markdown("""
 <style>
 :root { --bg:#0a1222; --panel:#121d34; --line:#2f4775; --txt:#f4f8ff; --muted:#b5c4e3; --main:#5b97ff; }
 .stApp { background: radial-gradient(1200px 650px at 8% -10%, #1c2f56 0%, #0a1222 50%, #091020 100%); color: var(--txt); }
-
 h1, h2, h3, h4, h5, h6, p, div.stMarkdown, div.stText { color: var(--txt) !important; }
 div[data-testid="stMetricLabel"] { color: var(--txt) !important; } 
 div[data-testid="stFormInputLabel"] { color: var(--txt) !important; } 
@@ -104,7 +103,6 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
 input, textarea, div[data-baseweb="select"] > div { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
 .role-badge { display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff; }
 
-/* 🔥 하얀색 배경 깨짐 방지 핵심 CSS 🔥 */
 /* Expander (펼치는 탭) 내부 배경 수정 */
 div[data-testid="stExpander"] details { background: #121d34 !important; border: 1px solid #2f4775 !important; border-radius: 10px !important; }
 div[data-testid="stExpander"] summary { background: #121d34 !important; color: #f4f8ff !important; }
@@ -131,82 +129,21 @@ div[data-testid="stTabs"] [data-baseweb="tab-panel"] { background: #0a1222 !impo
 """, unsafe_allow_html=True)
 
 # =========================
-# Utils
+# Utils & UI 렌더링 함수
 # =========================
 def safe_date_str(v):
     try: return pd.to_datetime(v).strftime("%Y-%m-%d")
     except Exception: return date.today().strftime("%Y-%m-%d")
 
-def normalize_tasks_df(df):
-    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","업무명","담당자","팀","상태","시작일","종료일","sent"])
-    req = ["id","업무명","담당자","팀","상태","시작일","종료일","sent"]
-    for c in req:
-        if c not in d.columns: d[c] = ""
-    if d.empty: return d[req]
-    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
-    d["시작일"] = d["시작일"].apply(safe_date_str)
-    d["종료일"] = d["종료일"].apply(safe_date_str)
-    return d[req].fillna("")
+def team_badge(team):
+    t = str(team).split(",")[0].strip() if str(team).strip() else "미지정"
+    c = TEAM_COLORS.get(t, "#7b8599")
+    return f"<span style='display:inline-block;padding:2px 8px;border-radius:999px;background:{c};color:#fff;font-size:11px;font-weight:700;'>{escape(t)}</span>"
 
-def normalize_agenda_df(df):
-    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","안건명","입안자","팀","상태","입안일","sent"])
-    req = ["id","안건명","입안자","팀","상태","입안일","sent"]
-    for c in req:
-        if c not in d.columns: d[c] = ""
-    if d.empty: return d[req]
-    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
-    d["입안일"] = d["입안일"].apply(safe_date_str)
-    return d[req].fillna("")
-
-def normalize_meetings_df(df):
-    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","분류","회의일자","제목","작성자","내용"])
-    req = ["id","분류","회의일자","제목","작성자","내용"]
-    for c in req:
-        if c not in d.columns: d[c] = ""
-    if d.empty: return d[req]
-    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
-    d["회의일자"] = d["회의일자"].apply(safe_date_str)
-    return d[req].fillna("")
-
-def init_data():
-    t = normalize_tasks_df(load_gsheet_to_df(WORKSHEET_TASKS))
-    a = normalize_agenda_df(load_gsheet_to_df(WORKSHEET_AGENDA))
-    m = normalize_meetings_df(load_gsheet_to_df(WORKSHEET_MEETINGS))
-    st.session_state.tasks_df = t
-    st.session_state.agenda_df = a
-    st.session_state.meetings_df = m
-
-def auth_gate():
-    if EDIT_PASSWORD == "" and VIEW_PASSWORD == "":
-        st.session_state.role = "edit"
-        return
-    if st.session_state.get("role") is not None: return
-    st.title("🔐 로그인")
-    role_choice = st.radio("권한", ["조회", "편집"], horizontal=True)
-    pw = st.text_input("비밀번호", type="password")
-    if st.button("로그인", type="primary"):
-        if role_choice == "편집" and pw == EDIT_PASSWORD: st.session_state.role = "edit"; st.rerun()
-        elif role_choice == "조회" and pw == VIEW_PASSWORD: st.session_state.role = "view"; st.rerun()
-        else: st.error("비밀번호가 올바르지 않습니다.")
-    st.stop()
-
-def can_edit(): return st.session_state.get("role") == "edit"
-
-def send_discord(fields, title, username, color=3447003):
-    if not DISCORD_WEBHOOK_URL: return False, "DISCORD_WEBHOOK_URL이 설정되지 않았습니다."
-    try:
-        sent = 0
-        for i in range(0, len(fields), 25):
-            batch = fields[i:i+25]
-            payload = {
-                "username": username,
-                "embeds": [{"title": title, "color": color, "fields": batch, "footer": {"text": f"Hallaon Agile • {len(batch)}개"}}]
-            }
-            r = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
-            if r.status_code not in (200, 204): return False, f"HTTP {r.status_code}: {r.text[:120]}"
-            sent += len(batch)
-        return True, f"{sent}개 전송 완료"
-    except Exception as e: return False, str(e)
+def status_badge(status):
+    s = str(status).strip()
+    c = STATUS_COLORS.get(s, "#8893a8")
+    return f"<span style='display:inline-block;padding:2px 8px;border-radius:999px;background:{c};color:#fff;font-size:11px;font-weight:700;'>{escape(s)}</span>"
 
 def render_gantt(df):
     if df.empty:
@@ -290,6 +227,77 @@ def render_gantt(df):
     h += "</tbody></table></div>"
     return h
 
+def normalize_tasks_df(df):
+    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","업무명","담당자","팀","상태","시작일","종료일","sent"])
+    req = ["id","업무명","담당자","팀","상태","시작일","종료일","sent"]
+    for c in req:
+        if c not in d.columns: d[c] = ""
+    if d.empty: return d[req]
+    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
+    d["시작일"] = d["시작일"].apply(safe_date_str)
+    d["종료일"] = d["종료일"].apply(safe_date_str)
+    return d[req].fillna("")
+
+def normalize_agenda_df(df):
+    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","안건명","입안자","팀","상태","입안일","sent"])
+    req = ["id","안건명","입안자","팀","상태","입안일","sent"]
+    for c in req:
+        if c not in d.columns: d[c] = ""
+    if d.empty: return d[req]
+    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
+    d["입안일"] = d["입안일"].apply(safe_date_str)
+    return d[req].fillna("")
+
+def normalize_meetings_df(df):
+    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["id","분류","회의일자","제목","작성자","내용"])
+    req = ["id","분류","회의일자","제목","작성자","내용"]
+    for c in req:
+        if c not in d.columns: d[c] = ""
+    if d.empty: return d[req]
+    d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
+    d["회의일자"] = d["회의일자"].apply(safe_date_str)
+    return d[req].fillna("")
+
+def init_data():
+    t = normalize_tasks_df(load_gsheet_to_df(WORKSHEET_TASKS))
+    a = normalize_agenda_df(load_gsheet_to_df(WORKSHEET_AGENDA))
+    m = normalize_meetings_df(load_gsheet_to_df(WORKSHEET_MEETINGS))
+    st.session_state.tasks_df = t
+    st.session_state.agenda_df = a
+    st.session_state.meetings_df = m
+
+def auth_gate():
+    if EDIT_PASSWORD == "" and VIEW_PASSWORD == "":
+        st.session_state.role = "edit"
+        return
+    if st.session_state.get("role") is not None: return
+    st.title("🔐 로그인")
+    role_choice = st.radio("권한", ["조회", "편집"], horizontal=True)
+    pw = st.text_input("비밀번호", type="password")
+    if st.button("로그인", type="primary"):
+        if role_choice == "편집" and pw == EDIT_PASSWORD: st.session_state.role = "edit"; st.rerun()
+        elif role_choice == "조회" and pw == VIEW_PASSWORD: st.session_state.role = "view"; st.rerun()
+        else: st.error("비밀번호가 올바르지 않습니다.")
+    st.stop()
+
+def can_edit(): return st.session_state.get("role") == "edit"
+
+def send_discord(fields, title, username, color=3447003):
+    if not DISCORD_WEBHOOK_URL: return False, "DISCORD_WEBHOOK_URL이 설정되지 않았습니다."
+    try:
+        sent = 0
+        for i in range(0, len(fields), 25):
+            batch = fields[i:i+25]
+            payload = {
+                "username": username,
+                "embeds": [{"title": title, "color": color, "fields": batch, "footer": {"text": f"Hallaon Agile • {len(batch)}개"}}]
+            }
+            r = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
+            if r.status_code not in (200, 204): return False, f"HTTP {r.status_code}: {r.text[:120]}"
+            sent += len(batch)
+        return True, f"{sent}개 전송 완료"
+    except Exception as e: return False, str(e)
+
 # =========================
 # Init
 # =========================
@@ -360,7 +368,6 @@ if menu == "📋 2026 한라온":
     e = tasks_df.copy()
     e.insert(0, "선택", False)
     
-    # 🔥 [수정 완료] pandas 에러가 나지 않도록 .dt.date 사용
     e["시작일"] = pd.to_datetime(e["시작일"]).dt.date
     e["종료일"] = pd.to_datetime(e["종료일"]).dt.date
     
@@ -393,7 +400,7 @@ if menu == "📋 2026 한라온":
                 st.rerun()
 
 # =========================
-# Tab 2 간트 
+# Tab 2 간트 (수제 간트차트 렌더링!)
 # =========================
 elif menu == "📊 간트 차트":
     st.header("📊 간트 차트 (Agile Tools)")
@@ -403,7 +410,6 @@ elif menu == "📊 간트 차트":
         gdf = gdf[~gdf["상태"].str.contains("완료", na=False)].copy()
     
     # HTML 수제 간트 차트 렌더링
-    import streamlit.components.v1 as components
     components.html(render_gantt(gdf), height=max(700, len(gdf)*56 + 230), scrolling=True)
 
 # =========================
@@ -481,7 +487,6 @@ elif menu == "🗂️ 안건":
     e_a = agenda_df.copy()
     e_a.insert(0, "선택", False)
     
-    # 🔥 [수정 완료] pandas 에러 방지 dt.date 사용
     e_a["입안일"] = pd.to_datetime(e_a["입안일"]).dt.date
     
     edited_a = st.data_editor(
