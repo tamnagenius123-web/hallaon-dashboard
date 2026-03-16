@@ -586,7 +586,7 @@ elif menu == "📝 회의록":
                     
                     st.caption(f"📁 {mtg['분류']} &nbsp;|&nbsp; 📅 {mtg['회의일자']} &nbsp;|&nbsp; 👤 {mtg['작성자']}")
                     st.markdown("---")
-                    st.markdown(mtg['내용']) 
+                    st.markdown(mtg['내용'].replace('\n', '  \n')) 
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     if can_edit() and st.button("🛑 이 회의록 삭제", type="secondary"):
