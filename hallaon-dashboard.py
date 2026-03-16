@@ -16,64 +16,53 @@ st.set_page_config(page_title="Hallaon Workspace", layout="wide")
 # =========================
 
 def get_gsheets_client():
-    # Streamlit Secrets에 저장된 JSON 인증 정보를 불러옵니다.
     try:
-        # 🚨 [수정된 부분] st.secrets는 읽기 전용이므로 dict()를 씌워 일반 딕셔너리로 복사합니다.
         creds_dict = dict(st.secrets["connections"]["gsheets"])
-        
-        # JSON 데이터에서 private_key의 줄바꿈 문자를 처리합니다.
         creds_dict["private_key"] = creds_dict["private_key"].replace('\\n', '\n')
-        
         scopes = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scopes)
         client = gspread.authorize(creds)
         return client
     except Exception as e:
-        st.error(f"구글 스프레드시트 인증 실패. Secrets 세팅을 확인해주세요.\n오류: {e}")
+        st.error(f"구글 인증 실패. Secrets 세팅을 확인해주세요.\n오류: {e}")
         st.stop()
-        
+
 # 워크시트 이름 정의
 WORKSHEET_TASKS = "Tasks"
 WORKSHEET_AGENDA = "Agenda"
 WORKSHEET_MEETINGS = "Meetings"
 
-def load_gsheet_to_df(worksheet_name):
-    # 구글 시트 데이터를 팬더스 데이터프레임으로 불러옵니다.
+def get_sheet():
     client = get_gsheets_client()
+    # 이름 대신 확실한 URL로 시트를 엽니다.
+    sheet_url = st.secrets.get("GSHEET_URL", "")
+    if sheet_url:
+        return client.open_by_url(sheet_url)
+    else:
+        st.error("Secrets에 GSHEET_URL이 설정되지 않았습니다.")
+        st.stop()
+
+def load_gsheet_to_df(worksheet_name):
     try:
-        # 워크스페이스용 구글 시트 제목 (secrets에 저장하는 것을 권장)
-        sheet_title = st.secrets.get("GSHEET_TITLE", "Hallaon_Database")
-        sheet = client.open(sheet_title)
+        sheet = get_sheet()
         worksheet = sheet.worksheet(worksheet_name)
         data = worksheet.get_all_values()
-        
-        if len(data) <= 1: # 데이터가 없거나 헤더만 있는 경우
-             return pd.DataFrame(columns=data[0] if data else [])
-        
+        if len(data) <= 1: return pd.DataFrame(columns=data[0] if data else [])
         return pd.DataFrame(data[1:], columns=data[0])
     except Exception as e:
-        st.error(f"'{worksheet_name}' 시트 데이터를 불러오지 못했습니다.\n오류: {e}")
+        st.error(f"'{worksheet_name}' 시트를 불러오지 못했습니다. URL과 시트 탭 이름(Tasks, Agenda, Meetings)을 확인하세요.\n오류: {e}")
         return pd.DataFrame()
 
 def save_df_to_gsheet(df, worksheet_name):
-    # 팬더스 데이터프레임을 구글 시트에 덮어씁니다. (가장 확실한 저장 방식)
-    client = get_gsheets_client()
     try:
-        sheet_title = st.secrets.get("GSHEET_TITLE", "Hallaon_Database")
-        sheet = client.open(sheet_title)
+        sheet = get_sheet()
         worksheet = sheet.worksheet(worksheet_name)
-        
-        worksheet.clear() # 기존 데이터 삭제
-        
-        # 날짜 데이터 등을 문자열로 변환하고 빈 값을 처리합니다.
+        worksheet.clear() 
         safe_df = df.fillna("")
-        
-        # 헤더와 데이터를 리스트로 변환하여 업데이트합니다.
         final_data = [safe_df.columns.values.tolist()] + safe_df.values.tolist()
         worksheet.update(final_data)
-        
     except Exception as e:
-        st.error(f"'{worksheet_name}' 시트에 데이터를 저장하지 못했습니다.\n오류: {e}")
+        st.error(f"'{worksheet_name}' 시트에 저장하지 못했습니다.\n오류: {e}")
 
 # =========================
 # Config & Data Constants
@@ -93,25 +82,18 @@ STATUS_COLORS = {
 }
 
 # =========================
-# 🎨 UI Style (폰트 깨짐 및 가독성 픽스 완료!)
+# 🎨 UI Style (펼친 탭/하얀색 배경 깨짐 완벽 픽스!)
 # =========================
 st.markdown("""
 <style>
-/* 기본 테마 및 배경 */
 :root { --bg:#0a1222; --panel:#121d34; --line:#2f4775; --txt:#f4f8ff; --muted:#b5c4e3; --main:#5b97ff; }
 .stApp { background: radial-gradient(1200px 650px at 8% -10%, #1c2f56 0%, #0a1222 50%, #091020 100%); color: var(--txt); }
 
-/* targeted color rules: 폰트 깨짐 방지를 위해 Aggressive Div Rule 제거 */
 h1, h2, h3, h4, h5, h6, p, div.stMarkdown, div.stText { color: var(--txt) !important; }
-div[data-testid="stExpander"] details summary { color: var(--txt) !important; } /* Explorer folder title */
-div[data-testid="stMetricLabel"] { color: var(--txt) !important; } /* Metric Label */
-div[data-testid="stFormInputLabel"] { color: var(--txt) !important; } /* Form Label */
-div.stTab label p { color: var(--txt) !important; } /* Tab label */
-
-/* Muted elements (회의록 분류/날짜 가독성 픽스 핵심!) */
+div[data-testid="stMetricLabel"] { color: var(--txt) !important; } 
+div[data-testid="stFormInputLabel"] { color: var(--txt) !important; } 
 small, [data-testid="stCaptionContainer"] * { color: var(--muted) !important; }
 
-/* 기존의 잘 작동하던 디자인 유지 */
 section[data-testid="stSidebar"] { background: linear-gradient(180deg,#15213d 0%, #101a30 100%); border-right:1px solid var(--line); }
 section[data-testid="stSidebar"] * { color:#ecf3ff !important; }
 section[data-testid="stSidebar"] [data-baseweb="radio"] label { background:#1a2a4b; border:1px solid #35558e; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
@@ -122,20 +104,29 @@ button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !importa
 input, textarea, div[data-baseweb="select"] > div { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
 .role-badge { display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff; }
 
+/* 🔥 하얀색 배경 깨짐 방지 핵심 CSS 🔥 */
+/* Expander (펼치는 탭) 내부 배경 수정 */
+div[data-testid="stExpander"] details { background: #121d34 !important; border: 1px solid #2f4775 !important; border-radius: 10px !important; }
+div[data-testid="stExpander"] summary { background: #121d34 !important; color: #f4f8ff !important; }
+div[data-testid="stExpanderDetails"] { background: #121d34 !important; color: #f4f8ff !important; }
+div[data-testid="stExpanderDetails"] * { color: #f4f8ff; }
+
+/* Tabs (전송 메뉴 탭 등) 디자인 수정 */
+div[data-testid="stTabs"] button { color: #b5c4e3 !important; }
+div[data-testid="stTabs"] button[aria-selected="true"] { color: #f4f8ff !important; font-weight: bold !important; }
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: #5b97ff !important; }
+div[data-testid="stTabs"] [data-baseweb="tab-panel"] { background: #0a1222 !important; color: #f4f8ff !important; padding-top: 20px; }
+
 /* MultiSelect 태그 PM 잘림 방지 */
 [data-testid="stMultiSelect"] [data-baseweb="tag"] { background: #ff5c7c !important; border: none !important; border-radius: 8px !important; min-height: 24px !important; padding: 0 8px !important; }
 [data-testid="stMultiSelect"] [data-baseweb="tag"] span { color: #fff !important; font-weight: 700 !important; overflow: visible !important; }
-
-/* Calendar fix */
 [data-baseweb="calendar"], [data-baseweb="calendar"] * { background: #121d34 !important; color: #f4f8ff !important; border-color: #35558e !important; }
 [data-baseweb="calendar"] button { background: transparent !important; }
 [data-baseweb="calendar"] [aria-selected="true"] { background: #ff5c7c !important; color: #fff !important; border-radius: 999px !important; }
-
-/* Folder Explorer specific */
 .folder-btn button { background: transparent !important; border: none !important; text-align: left !important; justify-content: flex-start !important; padding: 5px 10px !important; font-size: 14px !important;}
 .folder-btn button:hover { background: #1f3563 !important; }
-.folder-btn button span { color: var(--txt) !important; } /* explorer file title */
-.folder-btn button:hover span { color: #ffffff !important; } /* explorer file title on hover */
+.folder-btn button span { color: var(--txt) !important; }
+.folder-btn button:hover span { color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,7 +169,6 @@ def normalize_meetings_df(df):
     return d[req].fillna("")
 
 def init_data():
-    # 이제 CSV 대신 구글 시트에서 데이터를 불러옵니다.
     t = normalize_tasks_df(load_gsheet_to_df(WORKSHEET_TASKS))
     a = normalize_agenda_df(load_gsheet_to_df(WORKSHEET_AGENDA))
     m = normalize_meetings_df(load_gsheet_to_df(WORKSHEET_MEETINGS))
@@ -201,16 +191,6 @@ def auth_gate():
     st.stop()
 
 def can_edit(): return st.session_state.get("role") == "edit"
-
-def team_badge(team):
-    t = str(team).split(",")[0].strip() if str(team).strip() else "미지정"
-    c = TEAM_COLORS.get(t, "#7b8599")
-    return f"<span style='display:inline-block;padding:2px 8px;border-radius:999px;background:{c};color:#fff;font-size:11px;font-weight:700;'>{escape(t)}</span>"
-
-def status_badge(status):
-    s = str(status).strip()
-    c = STATUS_COLORS.get(s, "#8893a8")
-    return f"<span style='display:inline-block;padding:2px 8px;border-radius:999px;background:{c};color:#fff;font-size:11px;font-weight:700;'>{escape(s)}</span>"
 
 def send_discord(fields, title, username, color=3447003):
     if not DISCORD_WEBHOOK_URL: return False, "DISCORD_WEBHOOK_URL이 설정되지 않았습니다."
@@ -255,7 +235,7 @@ with st.sidebar:
     )
 
 # =========================
-# Tab 1 업무 (구글 시트 기반)
+# Tab 1 업무 
 # =========================
 if menu == "📋 2026 한라온":
     st.header("📋 2026 한라온")
@@ -281,7 +261,6 @@ if menu == "📋 2026 한라온":
         }
         tasks_df = pd.concat([tasks_df, pd.DataFrame([new_row])], ignore_index=True)
         st.session_state.tasks_df = tasks_df
-        # 구글 시트에 저장
         save_df_to_gsheet(tasks_df, WORKSHEET_TASKS)
         st.success("업무가 추가되었습니다.")
         st.rerun()
@@ -298,9 +277,10 @@ if menu == "📋 2026 한라온":
     st.markdown("### 업무 수정/삭제")
     e = tasks_df.copy()
     e.insert(0, "선택", False)
-    # 날짜 데이터를 날짜형으로 변환하여 에디터에 표시
-    e["시작일"] = pd.to_datetime(e["시작일"]).date
-    e["종료일"] = pd.to_datetime(e["종료일"]).date
+    
+    # 🔥 [수정 완료] pandas 에러가 나지 않도록 .dt.date 사용
+    e["시작일"] = pd.to_datetime(e["시작일"]).dt.date
+    e["종료일"] = pd.to_datetime(e["종료일"]).dt.date
     
     edited = st.data_editor(
         e[["선택","업무명","담당자","팀","상태","시작일","종료일"]],
@@ -312,12 +292,10 @@ if menu == "📋 2026 한라온":
     with c1:
         if st.button("업무 수정사항 저장", type="primary", disabled=not can_edit()):
             base = tasks_df.copy().reset_index(drop=True)
-            # 날짜를 다시 문자열로 변환하여 저장
             edited["시작일"] = edited["시작일"].apply(safe_date_str)
             edited["종료일"] = edited["종료일"].apply(safe_date_str)
             base[["업무명","담당자","팀","상태","시작일","종료일"]] = edited[["업무명","담당자","팀","상태","시작일","종료일"]]
             st.session_state.tasks_df = base
-            # 구글 시트에 저장
             save_df_to_gsheet(base, WORKSHEET_TASKS)
             st.success("수정사항이 저장되었습니다.")
             st.rerun()
@@ -328,13 +306,12 @@ if menu == "📋 2026 한라온":
             else:
                 keep = tasks_df.drop(index=idx).reset_index(drop=True)
                 st.session_state.tasks_df = keep
-                # 구글 시트에 저장
                 save_df_to_gsheet(keep, WORKSHEET_TASKS)
                 st.success(f"{len(idx)}개 삭제 완료")
                 st.rerun()
 
 # =========================
-# Tab 2 간트 (구글 시트 데이터 기반)
+# Tab 2 간트 
 # =========================
 elif menu == "📊 간트 차트":
     st.header("📊 간트 차트 (Agile Tools)")
@@ -342,13 +319,12 @@ elif menu == "📊 간트 차트":
     gdf = tasks_df.copy()
     if hide_done: gdf = gdf[~gdf["상태"].str.contains("완료", na=False)].copy()
     
-    # Plotly Timeline 차트로 간지나게 표시
     if not gdf.empty:
         gdf["시작일_dt"] = pd.to_datetime(gdf["시작일"])
-        gdf["종료일_dt"] = pd.to_datetime(gdf["종료일"]) + timedelta(days=1) # 종료일 당일을 포함하기 위해 1일 추가
+        gdf["종료일_dt"] = pd.to_datetime(gdf["종료일"]) + timedelta(days=1) 
         
         fig = px.timeline(gdf, x_start="시작일_dt", x_end="종료일_dt", y="업무명", color="팀", hover_data=["담당자","상태"])
-        fig.update_yaxes(autorange="reversed") # 최신 항목이 위로
+        fig.update_yaxes(autorange="reversed") 
         fig.update_layout(template="plotly_dark", height=600, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -361,7 +337,6 @@ elif menu == "📈 대시보드":
     st.header("📈 2026 한라온 종합 대시보드")
     if tasks_df.empty: st.info("업무 데이터가 없습니다.")
     else:
-        # 중복 방지를 위해 업무명 기준 유니크 데이터 사용
         unique_df = tasks_df.drop_duplicates(subset=['업무명'])
         
         m1, m2, m3, m4 = st.columns(4)
@@ -387,7 +362,7 @@ elif menu == "📈 대시보드":
             st.plotly_chart(fig2, use_container_width=True)
 
 # =========================
-# Tab 4 안건 (구글 시트 기반)
+# Tab 4 안건
 # =========================
 elif menu == "🗂️ 안건":
     st.header("🗂️ 안건")
@@ -409,32 +384,29 @@ elif menu == "🗂️ 안건":
         }
         agenda_df = pd.concat([agenda_df, pd.DataFrame([new_row])], ignore_index=True)
         st.session_state.agenda_df = agenda_df
-        # 구글 시트에 저장
         save_df_to_gsheet(agenda_df, WORKSHEET_AGENDA)
         st.success("안건이 추가되었습니다.")
         st.rerun()
 
-    # 검색 및 필터링 UI
     st.markdown("---")
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: search_q = st.text_input("🔍 안건명 검색", placeholder="안건명을 입력하세요...")
     with c2: team_f = st.selectbox("👥 팀 필터", ["전체"] + TEAM_OPTIONS)
     with c3: status_f = st.selectbox("🏷️ 상태 필터", ["전체"] + AGENDA_STATUS_OPTIONS)
 
-    # 데이터 필터링 적용
     f = agenda_df.copy()
     if search_q: f = f[f["안건명"].str.contains(search_q, case=False, na=False)]
     if team_f != "전체": f = f[f["팀"].str.contains(team_f, na=False)]
     if status_f != "전체": f = f[f["상태"] == status_f]
-    # 입안일 최신순 정렬
     f = f.sort_values("입안일", ascending=False)
     st.dataframe(f[["안건명","입안자","팀","상태","입안일"]], use_container_width=True, hide_index=True)
 
     st.markdown("### 안건 수정/삭제")
     e_a = agenda_df.copy()
     e_a.insert(0, "선택", False)
-    # 날짜 데이터 변환
-    e_a["입안일"] = pd.to_datetime(e_a["입안일"]).date
+    
+    # 🔥 [수정 완료] pandas 에러 방지 dt.date 사용
+    e_a["입안일"] = pd.to_datetime(e_a["입안일"]).dt.date
     
     edited_a = st.data_editor(
         e_a[["선택","안건명","입안자","팀","상태","입안일"]],
@@ -446,11 +418,9 @@ elif menu == "🗂️ 안건":
     with c1:
         if st.button("안건 수정사항 저장", type="primary", disabled=not can_edit()):
             base = agenda_df.copy().reset_index(drop=True)
-            # 날짜 다시 문자열 변환
             edited_a["입안일"] = edited_a["입안일"].apply(safe_date_str)
             base[["안건명","입안자","팀","상태","입안일"]] = edited_a[["안건명","입안자","팀","상태","입안일"]]
             st.session_state.agenda_df = base
-            # 구글 시트에 저장
             save_df_to_gsheet(base, WORKSHEET_AGENDA)
             st.success("안건 수정사항이 저장되었습니다.")
             st.rerun()
@@ -461,13 +431,12 @@ elif menu == "🗂️ 안건":
             else:
                 keep = agenda_df.drop(index=idx).reset_index(drop=True)
                 st.session_state.agenda_df = keep
-                # 구글 시트에 저장
                 save_df_to_gsheet(keep, WORKSHEET_AGENDA)
                 st.success(f"{len(idx)}개 삭제 완료")
                 st.rerun()
 
 # =========================
-# Tab 5 회의록 (구글 시트 기반 + UI 폰트 픽스!)
+# Tab 5 회의록
 # =========================
 elif menu == "📝 회의록":
     st.header("📝 한라온 회의록")
@@ -477,7 +446,6 @@ elif menu == "📝 회의록":
 
     col_nav, col_viewer = st.columns([2.5, 7.5])
     
-    # ----- 왼쪽: 폴더 탐색기 -----
     with col_nav:
         st.markdown("#### 📂 분류")
         if st.button("➕ 새 회의록 작성", use_container_width=True, disabled=not can_edit()):
@@ -496,7 +464,6 @@ elif menu == "📝 회의록":
                             st.session_state.sel_mtg_id = r["id"]; st.session_state.is_edit_mtg = False; st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ----- 오른쪽: 뷰어/에디터 (폰트 가독성 픽스 완료!) -----
     with col_viewer:
         st.markdown("<div style='border-left: 1px solid #2f4775; padding-left: 30px; min-height: 600px;'>", unsafe_allow_html=True)
         
@@ -521,7 +488,6 @@ elif menu == "📝 회의록":
                         }
                         meetings_df = pd.concat([meetings_df, pd.DataFrame([new_row])], ignore_index=True)
                         st.session_state.meetings_df = meetings_df
-                        # 구글 시트에 저장
                         save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
                         st.session_state.sel_mtg_id = new_row["id"]; st.session_state.is_edit_mtg = False; st.rerun()
                             
@@ -537,20 +503,18 @@ elif menu == "📝 회의록":
                         if can_edit() and st.button("✏️ 수정", use_container_width=True):
                             st.session_state.is_edit_mtg = True; st.rerun()
                     
-                    # 🔥 [폰트 가독성 픽스] st.caption을 사용하여 분류, 일자, 작성자를 var(--muted) 색상으로 완벽하게 표시!
                     st.caption(f"📁 {mtg['분류']} &nbsp;|&nbsp; 📅 {mtg['회의일자']} &nbsp;|&nbsp; 👤 {mtg['작성자']}")
                     st.markdown("---")
-                    st.markdown(mtg['내용']) # 마크다운 형식으로 내용 출력
+                    st.markdown(mtg['내용']) 
                     
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     if can_edit() and st.button("🛑 이 회의록 삭제", type="secondary"):
                         keep_m = meetings_df[meetings_df["id"] != mtg['id']].reset_index(drop=True)
                         st.session_state.meetings_df = keep_m
-                        # 구글 시트에 저장
                         save_df_to_gsheet(keep_m, WORKSHEET_MEETINGS)
                         st.session_state.sel_mtg_id = None; st.rerun()
 
-                else: # 수정 모드
+                else: 
                     st.subheader("✏️ 회의록 수정")
                     with st.form("edit_mtg_form"):
                         f_title = st.text_input("회의 제목", value=mtg['제목'])
@@ -570,7 +534,6 @@ elif menu == "📝 회의록":
                                 meetings_df.at[idx, '작성자'] = f_author
                                 meetings_df.at[idx, '내용'] = f_content
                                 st.session_state.meetings_df = meetings_df
-                                # 구글 시트에 저장
                                 save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
                                 st.session_state.is_edit_mtg = False; st.rerun()
                         with btn_c2:
@@ -610,10 +573,8 @@ elif menu == "🤖 최근 등록된 작업 전송":
                 ok, msg = send_discord(fields, "🔔 신규 업무 알림", "Hallaon Roadmap Bot", color=3447003)
                 if ok:
                     sent_ids = set(sel_tasks["id"].tolist())
-                    # 워크스페이스 내 데이터 및 세션 상태 업데이트
                     tasks_df["sent"] = tasks_df["id"].apply(lambda x: "True" if x in sent_ids or str(tasks_df.loc[tasks_df["id"]==x, "sent"].iloc[0]) == "True" else "False")
                     st.session_state.tasks_df = tasks_df
-                    # 구글 시트에 최종 저장
                     save_df_to_gsheet(tasks_df, WORKSHEET_TASKS)
                     st.success(msg)
                     st.rerun()
@@ -642,10 +603,8 @@ elif menu == "🤖 최근 등록된 작업 전송":
                 ok, msg = send_discord(fields, "📌 신규 안건 알림", "Hallaon Agenda Bot", color=5793266)
                 if ok:
                     sent_ids = set(sel_agendas["id"].tolist())
-                    # 데이터 및 세션 상태 업데이트
                     agenda_df["sent"] = agenda_df["id"].apply(lambda x: "True" if x in sent_ids or str(agenda_df.loc[agenda_df["id"]==x, "sent"].iloc[0]) == "True" else "False")
                     st.session_state.agenda_df = agenda_df
-                    # 구글 시트에 최종 저장
                     save_df_to_gsheet(agenda_df, WORKSHEET_AGENDA)
                     st.success(msg)
                     st.rerun()
