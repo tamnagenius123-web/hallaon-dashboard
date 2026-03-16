@@ -18,7 +18,9 @@ st.set_page_config(page_title="Hallaon Workspace", layout="wide")
 def get_gsheets_client():
     # Streamlit Secrets에 저장된 JSON 인증 정보를 불러옵니다.
     try:
-        creds_dict = st.secrets["connections"]["gsheets"]
+        # 🚨 [수정된 부분] st.secrets는 읽기 전용이므로 dict()를 씌워 일반 딕셔너리로 복사합니다.
+        creds_dict = dict(st.secrets["connections"]["gsheets"])
+        
         # JSON 데이터에서 private_key의 줄바꿈 문자를 처리합니다.
         creds_dict["private_key"] = creds_dict["private_key"].replace('\\n', '\n')
         
@@ -29,7 +31,7 @@ def get_gsheets_client():
     except Exception as e:
         st.error(f"구글 스프레드시트 인증 실패. Secrets 세팅을 확인해주세요.\n오류: {e}")
         st.stop()
-
+        
 # 워크시트 이름 정의
 WORKSHEET_TASKS = "Tasks"
 WORKSHEET_AGENDA = "Agenda"
