@@ -511,7 +511,7 @@ if menu == "🏠 홈 (안내서)":
         # WBS의 이해를 돕기 위한 다이어그램 트리거
         
 
-[Image of Work breakdown structure diagram]
+#[Image of Work breakdown structure diagram]
 
 
     with c2:
