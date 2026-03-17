@@ -478,7 +478,7 @@ with st.sidebar:
 # =========================
 # Tab: 홈 (안내서)
 # =========================
-elif menu == "🏠 홈 (안내서)":
+if menu == "🏠 홈 (안내서)":
     st.markdown("""
     <div style="background: linear-gradient(135deg, rgba(130, 177, 255, 0.1) 0%, rgba(13, 17, 23, 0) 100%); 
                 padding: 40px 32px; border-radius: 24px; border: 1px solid var(--border-subtle); margin-bottom: 32px;">
