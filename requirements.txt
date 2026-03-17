@@ -4,3 +4,4 @@ plotly
 requests
 gspread
 oauth2client
+streamlit-calendar
