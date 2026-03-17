@@ -713,13 +713,16 @@ elif menu == "📅 캘린더":
                 "allDay": True
             })
 
-    calendar_options = {
+calendar_options = {
         "headerToolbar": {"left": "today prev,next", "center": "title", "right": "dayGridMonth,timeGridWeek,listWeek"},
         "initialView": "dayGridMonth", "themeSystem": "standard", "eventDisplay": "block",
     }
     
+    # CSS 수정: 가로 너비 강제 고정 및 삐져나옴(overflow) 방지
     custom_css = """
-        .fc { font-family: 'Inter', sans-serif; }
+        .fc { font-family: 'Inter', sans-serif; width: 100% !important; max-width: 100% !important; }
+        .fc-view-harness { max-width: 100% !important; overflow-x: hidden !important; }
+        .fc-scrollgrid { width: 100% !important; }
         .fc-theme-standard td, .fc-theme-standard th { border-color: rgba(148,180,226,0.1) !important; }
         .fc-toolbar-title { font-weight: 800 !important; color: rgba(240,246,255,0.92) !important; }
         .fc-button { background-color: #1c2636 !important; border-color: rgba(148,180,226,0.2) !important; color: #b0c4e2 !important; box-shadow: none !important; }
@@ -729,8 +732,15 @@ elif menu == "📅 캘린더":
         .fc-event { border-radius: 4px; padding: 2px 4px; font-size: 11px; font-weight: 600; cursor: pointer; border-width: 1px !important;}
     """
     
-    st.markdown("<div style='background: #131a24; padding: 20px; border-radius: 16px; border: 1px solid rgba(148,180,226,0.12); box-shadow: 0 4px 8px rgba(0,0,0,0.2);'>", unsafe_allow_html=True)
+    # Wrapper div에 box-sizing 및 overflow 속성 추가
+    st.markdown("""
+    <div style='background: #131a24; padding: 16px; border-radius: 16px; 
+                border: 1px solid rgba(148,180,226,0.12); box-shadow: var(--shadow-sm); 
+                box-sizing: border-box; width: 100%; overflow: hidden;'>
+    """, unsafe_allow_html=True)
+    
     calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key="hallaon_calendar")
+    
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
