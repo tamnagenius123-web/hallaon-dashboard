@@ -475,32 +475,72 @@ with st.sidebar:
 # =========================
 # Tab: 홈 (안내서)
 # =========================
-if menu == "🏠 홈 (안내서)":
+# =========================
+# Tab: 홈 (안내서)
+# =========================
+elif menu == "🏠 홈 (안내서)":
     st.markdown("""
-    <div style="margin-bottom:24px;">
-        <h2 style="font-size:28px;font-weight:800;margin:0;border:none !important;">👋 한라온 워크스페이스에 오신 것을 환영합니다!</h2>
-        <p style="color:rgba(176,196,226,0.7);font-size:15px;margin:8px 0 0 0;">탐라영재관 자율회 한라온의 효율적인 의사결정과 프로젝트 관리를 위해 설계되었습니다.</p>
+    <div style="background: linear-gradient(135deg, rgba(130, 177, 255, 0.1) 0%, rgba(13, 17, 23, 0) 100%); 
+                padding: 40px 32px; border-radius: 24px; border: 1px solid var(--border-subtle); margin-bottom: 32px;">
+        <h1 style="font-size:36px;font-weight:800;margin:0 0 12px 0;letter-spacing:-0.03em;">
+            <span style="color:#82b1ff;">Hallaon</span> Workspace
+        </h1>
+        <p style="color:rgba(176,196,226,0.8);font-size:16px;line-height:1.6;margin:0;max-width:800px;">
+            탐라영재관 자율회 한라온의 성공적인 프로젝트 완수를 위한 <b>데이터 기반 의사결정 및 일정 관리 플랫폼</b>입니다.<br>
+            직감을 넘어, 체계적인 알고리즘과 시각화된 데이터로 팀의 목표를 달성하세요.
+        </p>
     </div>
-    <hr>
     """, unsafe_allow_html=True)
     
-    c1, c2 = st.columns(2)
+    st.markdown("<h3 style='margin-bottom: 16px;'>📖 한라온 필수 가이드 (처음 오셨다면 꼭 읽어주세요!)</h3>", unsafe_allow_html=True)
+    
+    c1, c2 = st.columns(2, gap="large")
     with c1:
         st.markdown("""
-        #### 🎯 주요 기능 안내
-        * **📋 업무 및 WBS**: 업무를 계층 구조로 나누고(WBS), 소요 시간을 예측(PERT)합니다.
-        * **📊 간트 차트 (CPM)**: 업무의 선후 관계를 파악하고 핵심 경로를 도출하여 시각화합니다.
-        * **📅 캘린더**: 업무, 회의, 안건 심의 일정을 하나의 뷰에서 확인합니다.
-        * **⚖️ 의사결정**: 객관적인 기준과 가중치를 통해 최적의 안건 대안을 산출하는 알고리즘을 사용합니다.
-        """)
+        <div style="background: var(--dp02); padding: 24px; border-radius: 16px; border: 1px solid var(--border-default); height: 100%;">
+            <h4 style="color: #ff8a9e; margin-top: 0;">1. 📋 WBS 란 무엇인가요?</h4>
+            <p style="color: var(--text-secondary); font-size: 14px;">
+                <b>WBS(Work Breakdown Structure)</b>는 거대한 프로젝트를 아주 작은 단위의 '실행 가능한 업무'로 쪼개는 작업입니다.
+            </p>
+            <ul style="color: var(--text-secondary); font-size: 14px; padding-left: 20px;">
+                <li><b>왜 필요한가요?</b> "체육대회 준비하기"라는 막연한 업무를 "장소 대관(1.1)", "예산안 작성(1.2)", "포스터 제작(2.1)" 등으로 잘게 나누어 <b>누가, 언제까지, 무엇을</b> 해야 하는지 명확하게 만듭니다.</li>
+                <li><b>선행 업무:</b> 포스터(2.1)를 만들려면 장소(1.1)가 먼저 확정되어야겠죠? 이때 2.1 업무의 '선행 업무' 칸에 1.1을 적어주면 두 업무가 연결됩니다.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        # WBS의 이해를 돕기 위한 다이어그램 트리거
+        
+
+[Image of Work breakdown structure diagram]
+
+
     with c2:
         st.markdown("""
-        #### 💡 사용자 가이드
-        * 좌측 메뉴에서 원하는 탭으로 이동할 수 있습니다.
-        * **편집 권한** 로그인 시에만 업무, 회의록 추가 및 수정이 가능합니다.
-        * 데이터 수정 시 반드시 하단의 **[저장]** 버튼을 눌러야 동기화됩니다.
-        * 모든 알림과 변경사항은 **🤖 작업 전송** 탭을 통해 디스코드로 공유할 수 있습니다.
-        """)
+        <div style="background: var(--dp02); padding: 24px; border-radius: 16px; border: 1px solid var(--border-default); height: 100%;">
+            <h4 style="color: #ffe082; margin-top: 0;">2. 📊 간트 차트와 핵심 경로(CPM)</h4>
+            <p style="color: var(--text-secondary); font-size: 14px;">
+                <b>간트 차트</b>는 WBS로 쪼갠 업무들을 달력 위에 막대그래프로 펼쳐놓아 한눈에 일정을 파악하는 도구입니다.
+            </p>
+            <ul style="color: var(--text-secondary); font-size: 14px; padding-left: 20px;">
+                <li><b>PERT (3점 추정):</b> 업무를 추가할 때 낙관적(빠름), 보통, 비관적(느림) 시간을 입력하면 알고리즘이 가장 현실적인 소요일을 자동 계산합니다.</li>
+                <li><b>🔥 핵심 경로 (Critical Path):</b> 간트 차트에서 <b><span style='color:#ff5252;'>붉은색 막대</span></b>로 표시된 업무들입니다. 이 업무들이 하루라도 지연되면 프로젝트 전체 일정이 지연되는 아주 중요한 '병목 업무'를 뜻합니다. 우선적으로 관리해 주세요!</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        # 간트 차트와 핵심 경로 이해를 돕기 위한 다이어그램 트리거
+        
+
+    st.markdown("<hr style='margin: 40px 0;'>", unsafe_allow_html=True)
+    
+    st.markdown("### 🚀 3단계 빠른 시작")
+    col_step1, col_step2, col_step3 = st.columns(3)
+    
+    with col_step1:
+        st.info("**STEP 1. 업무 분할 및 등록**\n\n좌측 `📋 업무 및 WBS` 메뉴로 이동하여 프로젝트를 WBS 코드로 나누고, 선행 업무와 PERT 예상 시간을 등록하세요.")
+    with col_step2:
+        st.warning("**STEP 2. 핵심 경로 파악**\n\n`📊 간트 차트` 메뉴에서 붉은색으로 표시된 핵심 경로(Critical Path) 업무를 확인하고 담당자를 독려하세요.")
+    with col_step3:
+        st.success("**STEP 3. 알고리즘 의사결정**\n\n팀 내 의견이 갈리거나 중요한 결정이 필요할 때, `⚖️ 의사결정` 탭의 가중치 모델을 활용해 객관적으로 결정하세요.")
 
 # =========================
 # Tab: 업무 및 WBS
