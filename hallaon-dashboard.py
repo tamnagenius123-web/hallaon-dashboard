@@ -632,30 +632,45 @@ elif menu == "📅 캘린더":
     </div>
     """, unsafe_allow_html=True)
 
+# 이벤트 데이터 조립
     calendar_events = []
     
+    # 1. 업무 데이터 (기간)
     for _, r in tasks_df.iterrows():
         if r["시작일"] and r["종료일"]:
             color = TEAM_COLORS.get(str(r["팀"]).split(",")[0].strip(), "#90a4ae")
             end_date = (pd.to_datetime(r["종료일"]) + timedelta(days=1)).strftime("%Y-%m-%d")
             calendar_events.append({
-                "title": f"📋 {r['업무명']} ({r['담당자']})", "start": r["시작일"], "end": end_date,
-                "backgroundColor": f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)}, 0.2)",
-                "borderColor": color, "textColor": "#f0f6ff"
+                "title": f"📋 {r['업무명']} ({r['담당자']})",
+                "start": r["시작일"],
+                "end": end_date,
+                "backgroundColor": f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)}, 0.15)",
+                "borderColor": color,
+                "textColor": color # 🚨 여기를 흰색(#f0f6ff)에서 color 변수로 변경!
             })
             
+    # 2. 회의 데이터 (당일)
     for _, r in meetings_df.iterrows():
         if r["회의일자"]:
             calendar_events.append({
-                "title": f"📝 {r['제목']}", "start": r["회의일자"],
-                "backgroundColor": "rgba(105, 240, 174, 0.2)", "borderColor": "#69f0ae", "textColor": "#f0f6ff", "allDay": True
+                "title": f"📝 {r['제목']}",
+                "start": r["회의일자"],
+                "backgroundColor": "rgba(105, 240, 174, 0.15)",
+                "borderColor": "#69f0ae",
+                "textColor": "#69f0ae", # 🚨 변경
+                "allDay": True
             })
 
+    # 3. 안건 데이터 (당일)
     for _, r in agenda_df.iterrows():
         if r["입안일"]:
             calendar_events.append({
-                "title": f"🗂️ {r['안건명']} (입안)", "start": r["입안일"],
-                "backgroundColor": "rgba(255, 138, 158, 0.2)", "borderColor": "#ff8a9e", "textColor": "#f0f6ff", "allDay": True
+                "title": f"🗂️ {r['안건명']} (입안)",
+                "start": r["입안일"],
+                "backgroundColor": "rgba(255, 138, 158, 0.15)",
+                "borderColor": "#ff8a9e",
+                "textColor": "#ff8a9e", # 🚨 변경
+                "allDay": True
             })
 
     calendar_options = {
