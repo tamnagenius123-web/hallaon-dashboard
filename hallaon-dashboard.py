@@ -713,7 +713,9 @@ elif menu == "📅 캘린더":
                 "allDay": True
             })
 
-calendar_options = {
+# (앞부분 이벤트 데이터 조립 로직은 그대로 유지) ...
+
+    calendar_options = {
         "headerToolbar": {"left": "today prev,next", "center": "title", "right": "dayGridMonth,timeGridWeek,listWeek"},
         "initialView": "dayGridMonth", "themeSystem": "standard", "eventDisplay": "block",
     }
