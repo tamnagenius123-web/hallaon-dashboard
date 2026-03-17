@@ -86,45 +86,60 @@ STATUS_COLORS = {
 # =========================
 st.markdown("""
 <style>
-:root { --bg:#0a1222; --panel:#121d34; --line:#2f4775; --txt:#f4f8ff; --muted:#b5c4e3; --main:#5b97ff; }
-.stApp { background: radial-gradient(1200px 650px at 8% -10%, #1c2f56 0%, #0a1222 50%, #091020 100%); color: var(--txt); }
+/* Streamlit 기본 UI 숨기기 (앱처럼 보이게) */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* 글로벌 변수 및 배경 */
+:root { 
+    --bg: #0a1222; --panel: #121d34; --line: #2f4775; 
+    --txt: #f4f8ff; --muted: #b5c4e3; --main: #5b97ff; 
+}
+.stApp { 
+    background: radial-gradient(circle at 50% 0%, #1c2f56 0%, #0a1222 60%, #091020 100%);
+    color: var(--txt); 
+}
+
+/* 텍스트 색상 강제 지정 */
 h1, h2, h3, h4, h5, h6, p, div.stMarkdown, div.stText { color: var(--txt) !important; }
-div[data-testid="stMetricLabel"] { color: var(--txt) !important; } 
-div[data-testid="stFormInputLabel"] { color: var(--txt) !important; } 
 small, [data-testid="stCaptionContainer"] * { color: var(--muted) !important; }
 
-section[data-testid="stSidebar"] { background: linear-gradient(180deg,#15213d 0%, #101a30 100%); border-right:1px solid var(--line); }
-section[data-testid="stSidebar"] * { color:#ecf3ff !important; }
-section[data-testid="stSidebar"] [data-baseweb="radio"] label { background:#1a2a4b; border:1px solid #35558e; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
-div[data-testid="metric-container"] { background: linear-gradient(180deg,#213a69 0%, #1a2f57 100%) !important; border:1px solid #4a6aa5 !important; border-radius:14px !important; }
-div[data-testid="stDataFrame"] [role="grid"] { background:#121d34 !important; }
-button[kind="primary"] { background:linear-gradient(180deg,#5b97ff 0%, #4b87f3 100%) !important; color:#fff !important; border:none !important; }
-button[kind="secondary"] { background:#1a2d52 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
-input, textarea, div[data-baseweb="select"] > div { background:#121d34 !important; color:#f4f8ff !important; border:1px solid #35558e !important; }
-.role-badge { display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #4166a6; background:#1a2f57; color:#eaf2ff; }
+/* 사이드바 디자인 (모서리 둥글게, 그림자 추가) */
+section[data-testid="stSidebar"] { 
+    background: linear-gradient(180deg, #15213d 0%, #0a1222 100%); 
+    border-right: 1px solid var(--line); 
+}
+section[data-testid="stSidebar"] [data-baseweb="radio"] label { 
+    background: #1a2a4b; border: 1px solid #35558e; 
+    border-radius: 12px; /* 더 둥글게 */
+    padding: 10px 14px; margin-bottom: 8px; 
+    transition: all 0.2s ease-in-out; /* 호버 애니메이션 */
+}
+section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover {
+    background: #213a69; transform: translateY(-1px);
+}
 
-/* Expander (펼치는 탭) 내부 배경 수정 */
-div[data-testid="stExpander"] details { background: #121d34 !important; border: 1px solid #2f4775 !important; border-radius: 10px !important; }
-div[data-testid="stExpander"] summary { background: #121d34 !important; color: #f4f8ff !important; }
-div[data-testid="stExpanderDetails"] { background: #121d34 !important; color: #f4f8ff !important; }
-div[data-testid="stExpanderDetails"] * { color: #f4f8ff; }
+/* 버튼 디자인 (쫀득한 누름 효과) */
+button[kind="primary"] { 
+    background: linear-gradient(180deg, #5b97ff 0%, #4b87f3 100%) !important; 
+    color: #fff !important; border: none !important; 
+    border-radius: 10px !important; font-weight: bold !important;
+    box-shadow: 0 4px 10px rgba(91, 151, 255, 0.3) !important;
+    transition: all 0.2s;
+}
+button[kind="primary"]:active { transform: scale(0.97); } /* 클릭 시 살짝 작아짐 */
 
-/* Tabs (전송 메뉴 탭 등) 디자인 수정 */
-div[data-testid="stTabs"] button { color: #b5c4e3 !important; }
-div[data-testid="stTabs"] button[aria-selected="true"] { color: #f4f8ff !important; font-weight: bold !important; }
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: #5b97ff !important; }
-div[data-testid="stTabs"] [data-baseweb="tab-panel"] { background: #0a1222 !important; color: #f4f8ff !important; padding-top: 20px; }
-
-/* MultiSelect 태그 PM 잘림 방지 */
-[data-testid="stMultiSelect"] [data-baseweb="tag"] { background: #ff5c7c !important; border: none !important; border-radius: 8px !important; min-height: 24px !important; padding: 0 8px !important; }
-[data-testid="stMultiSelect"] [data-baseweb="tag"] span { color: #fff !important; font-weight: 700 !important; overflow: visible !important; }
-[data-baseweb="calendar"], [data-baseweb="calendar"] * { background: #121d34 !important; color: #f4f8ff !important; border-color: #35558e !important; }
-[data-baseweb="calendar"] button { background: transparent !important; }
-[data-baseweb="calendar"] [aria-selected="true"] { background: #ff5c7c !important; color: #fff !important; border-radius: 999px !important; }
-.folder-btn button { background: transparent !important; border: none !important; text-align: left !important; justify-content: flex-start !important; padding: 5px 10px !important; font-size: 14px !important;}
-.folder-btn button:hover { background: #1f3563 !important; }
-.folder-btn button span { color: var(--txt) !important; }
-.folder-btn button:hover span { color: #ffffff !important; }
+/* 입력창 및 Expander (카드 느낌) */
+input, textarea, div[data-baseweb="select"] > div { 
+    background: #121d34 !important; color: #f4f8ff !important;
+    border: 1px solid #35558e !important; border-radius: 8px !important;
+}
+div[data-testid="stExpander"] details { 
+    background: rgba(18, 29, 52, 0.6) !important; 
+    border: 1px solid #2f4775 !important;
+    border-radius: 12px !important; backdrop-filter: blur(10px);
+}
 </style>
 """, unsafe_allow_html=True)
 
