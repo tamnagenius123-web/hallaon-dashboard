@@ -478,6 +478,9 @@ with st.sidebar:
 # =========================
 # Tab: 홈 (안내서)
 # =========================
+# =========================
+# Tab: 홈 (안내서)
+# =========================
 if menu == "🏠 홈 (안내서)":
     st.markdown("""
     <div style="background: linear-gradient(135deg, rgba(130, 177, 255, 0.1) 0%, rgba(13, 17, 23, 0) 100%); 
@@ -494,41 +497,53 @@ if menu == "🏠 홈 (안내서)":
     
     st.markdown("<h3 style='margin-bottom: 16px;'>📖 한라온 필수 가이드 (처음 오셨다면 꼭 읽어주세요!)</h3>", unsafe_allow_html=True)
     
-    c1, c2 = st.columns(2, gap="large")
+    # 3열 레이아웃으로 변경 (WBS, 간트, 의사결정)
+    c1, c2, c3 = st.columns(3, gap="large")
+    
     with c1:
         st.markdown("""
         <div style="background: var(--dp02); padding: 24px; border-radius: 16px; border: 1px solid var(--border-default); height: 100%;">
-            <h4 style="color: #ff8a9e; margin-top: 0;">1. 📋 WBS 란 무엇인가요?</h4>
-            <p style="color: var(--text-secondary); font-size: 14px;">
+            <h4 style="color: #ff8a9e; margin-top: 0;">1. 📋 WBS와 고유 코드</h4>
+            <p style="color: var(--text-secondary); font-size: 13px;">
                 <b>WBS(Work Breakdown Structure)</b>는 거대한 프로젝트를 아주 작은 단위의 '실행 가능한 업무'로 쪼개는 작업입니다.
             </p>
-            <ul style="color: var(--text-secondary); font-size: 14px; padding-left: 20px;">
-                <li><b>왜 필요한가요?</b> "체육대회 준비하기"라는 막연한 업무를 "장소 대관(1.1)", "예산안 작성(1.2)", "포스터 제작(2.1)" 등으로 잘게 나누어 <b>누가, 언제까지, 무엇을</b> 해야 하는지 명확하게 만듭니다.</li>
-                <li><b>선행 업무:</b> 포스터(2.1)를 만들려면 장소(1.1)가 먼저 확정되어야겠죠? 이때 2.1 업무의 '선행 업무' 칸에 1.1을 적어주면 두 업무가 연결됩니다.</li>
+            <ul style="color: var(--text-secondary); font-size: 13px; padding-left: 20px;">
+                <li><b>왜 필요한가요?</b> 막연한 업무를 "장소 대관(1.1)", "포스터 제작(2.1)" 등으로 나누어 책임과 기한을 명확히 합니다.</li>
+                <li><b>🚨 코드 중복 금지:</b> WBS 코드는 주민등록번호처럼 <b>이 세상에 단 하나뿐인 고유한 번호</b>여야 합니다! 번호가 겹치면 알고리즘이 꼬이게 됩니다.</li>
+                <li><b>코드 부여 팁:</b> '2.2 동아리 서류 준비'라는 묶음 안에 여러 업무가 있다면 <b>2.2.1 신청서 작성</b>, <b>2.2.2 규정 작성</b>처럼 하위 단위로 쪼개서 번호를 부여하세요.</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        # WBS의 이해를 돕기 위한 다이어그램 트리거
-        
-
-#[Image of Work breakdown structure diagram]
-
 
     with c2:
         st.markdown("""
         <div style="background: var(--dp02); padding: 24px; border-radius: 16px; border: 1px solid var(--border-default); height: 100%;">
-            <h4 style="color: #ffe082; margin-top: 0;">2. 📊 간트 차트와 핵심 경로(CPM)</h4>
-            <p style="color: var(--text-secondary); font-size: 14px;">
-                <b>간트 차트</b>는 WBS로 쪼갠 업무들을 달력 위에 막대그래프로 펼쳐놓아 한눈에 일정을 파악하는 도구입니다.
+            <h4 style="color: #ffe082; margin-top: 0;">2. 📊 핵심 경로(CPM)와 PERT</h4>
+            <p style="color: var(--text-secondary); font-size: 13px;">
+                쪼개진 WBS 업무들을 달력 위에 막대그래프로 펼쳐놓아 한눈에 일정을 파악하고 지연을 방지합니다.
             </p>
-            <ul style="color: var(--text-secondary); font-size: 14px; padding-left: 20px;">
-                <li><b>PERT (3점 추정):</b> 업무를 추가할 때 낙관적(빠름), 보통, 비관적(느림) 시간을 입력하면 알고리즘이 가장 현실적인 소요일을 자동 계산합니다.</li>
-                <li><b>🔥 핵심 경로 (Critical Path):</b> 간트 차트에서 <b><span style='color:#ff5252;'>붉은색 막대</span></b>로 표시된 업무들입니다. 이 업무들이 하루라도 지연되면 프로젝트 전체 일정이 지연되는 아주 중요한 '병목 업무'를 뜻합니다. 우선적으로 관리해 주세요!</li>
+            <ul style="color: var(--text-secondary); font-size: 13px; padding-left: 20px;">
+                <li><b>선행 업무:</b> B 업무를 하기 위해 A가 먼저 끝나야 한다면, B의 '선행 업무' 칸에 A의 WBS 코드를 적어 두 업무를 연결합니다.</li>
+                <li><b>PERT (3점 추정):</b> 낙관적/보통/비관적 소요 시간을 입력하면 알고리즘이 현실적인 소요일을 자동 계산합니다.</li>
+                <li><b>🔥 핵심 경로:</b> 간트 차트의 <b><span style='color:#ff5252;'>붉은색 막대</span></b>는 하루라도 지연되면 프로젝트 전체가 지연되는 '병목 업무'입니다. 최우선으로 관리하세요!</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        # 간트 차트와 핵심 경로 이해를 돕기 위한 다이어그램 트리거
-        
+
+    with c3:
+        st.markdown("""
+        <div style="background: var(--dp02); padding: 24px; border-radius: 16px; border: 1px solid var(--border-default); height: 100%;">
+            <h4 style="color: #69f0ae; margin-top: 0;">3. ⚖️ 의사결정 알고리즘</h4>
+            <p style="color: var(--text-secondary); font-size: 13px;">
+                사람의 직감, 감정, 편향을 배제하고 수학적 모델(가중치 평가)을 통해 최적의 선택을 찾아주는 시스템입니다.
+            </p>
+            <ul style="color: var(--text-secondary); font-size: 13px; padding-left: 20px;">
+                <li><b>데이터 기반 결정:</b> 대기업들이 사용하는 "전략은 인간이, 최적화 계산은 알고리즘이 담당하는 구조"를 한라온에 맞게 도입했습니다.</li>
+                <li><b>어떻게 쓰나요?</b> 여러 대안(예: A업체 vs B업체)이 있을 때, 평가 기준(예: 예산 40%, 파급력 60%)과 각 대안의 점수를 입력하세요.</li>
+                <li><b>자동 산출:</b> 알고리즘이 기준별 가중치를 계산하여 가장 성과가 높은 1순위 대안을 과학적으로 추천합니다.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("<hr style='margin: 40px 0;'>", unsafe_allow_html=True)
     
@@ -540,8 +555,7 @@ if menu == "🏠 홈 (안내서)":
     with col_step2:
         st.warning("**STEP 2. 핵심 경로 파악**\n\n`📊 간트 차트` 메뉴에서 붉은색으로 표시된 핵심 경로(Critical Path) 업무를 확인하고 담당자를 독려하세요.")
     with col_step3:
-        st.success("**STEP 3. 알고리즘 의사결정**\n\n팀 내 의견이 갈리거나 중요한 결정이 필요할 때, `⚖️ 의사결정` 탭의 가중치 모델을 활용해 객관적으로 결정하세요.")
-
+        st.success("**STEP 3. 알고리즘 의사결정**\n\n팀 내 의견이 갈리거나 중요한 결정이 필요할 때, `⚖️ 의사결정` 탭의 모델을 활용해 객관적으로 결정하세요.")
 # =========================
 # Tab: 업무 및 WBS
 # =========================
