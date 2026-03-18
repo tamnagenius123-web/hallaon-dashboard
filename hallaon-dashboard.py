@@ -1843,73 +1843,90 @@ elif menu == "📄 문서":
 # =========================
 elif menu == "🤖 작업 전송":
     st.markdown("""
-    <div style="margin-bottom:24px;">
-        <h2 style="font-size:24px;font-weight:800;margin:0;border:none !important;">🤖 작업 전송</h2>
-        <p style="color:rgba(176,196,226,0.6);font-size:14px;margin:4px 0 0 0;">미전송 업무와 안건을 디스코드로 전송하세요</p>
-    </div>
-    """, unsafe_allow_html=True)
+        <div style="margin-bottom:24px;">
+            <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
+            <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    if not can_edit(): st.info("조회 권한에서는 전송이 불가합니다. '권한 전환'으로 로그인하세요.")
-
-    t_task, t_agenda = st.tabs(["📋 업무 전송", "🗂️ 안건 전송"])
-
-    with t_task:
-        u_tasks = tasks_df[tasks_df["sent"].astype(str) != "True"].reset_index(drop=True)
-        if u_tasks.empty: st.info("미전송 업무가 없습니다.")
-        else:
-            v_t = u_tasks.copy()
-            v_t.insert(0, "전송", False)
-            pick_t = st.data_editor(
-                v_t[["전송","WBS_코드","업무명","담당자","팀","상태","시작일","종료일"]],
-                use_container_width=True, hide_index=True, disabled=not can_edit(),
-                column_config={"전송": st.column_config.CheckboxColumn("전송")}
-            )
-            selected_task_indices = pick_t.index[pick_t["전송"] == True].tolist()
-            if st.button("🚀 선택 업무 디스코드 전송", type="primary", disabled=(not can_edit() or not selected_task_indices), use_container_width=True):
-                sel_tasks = u_tasks.iloc[selected_task_indices].copy()
-                fields = [{
-                    "name": f"🔹 {r['업무명']} ({r['팀']})",
-                    "value": f"👤 담당: {r['담당자']}\n🏷️ 상태: {r['상태']}\n📅 일정: {r['시작일']} → {r['종료일']}\n📝 WBS: {r.get('WBS_코드', '')}",
-                    "inline": False
-                } for _, r in sel_tasks.iterrows()]
-
-                ok, msg = send_discord(fields, "🔔 신규 업무 알림", "Hallaon Roadmap Bot", color=3447003)
-                if ok:
-                    sent_ids = set(sel_tasks["id"].tolist())
-                    tasks_df["sent"] = tasks_df["id"].apply(lambda x: "True" if x in sent_ids or str(tasks_df.loc[tasks_df["id"]==x, "sent"].iloc[0]) == "True" else "False")
-                    st.session_state.tasks_df = tasks_df
-                    save_df_to_gsheet(tasks_df, WORKSHEET_TASKS)
-                    st.success(msg)
-                    st.rerun()
-                else: st.error(msg)
-
-    with t_agenda:
-        u_agendas = agenda_df[agenda_df["sent"].astype(str) != "True"].reset_index(drop=True)
-        if u_agendas.empty: st.info("미전송 안건이 없습니다.")
-        else:
-            v_a = u_agendas.copy()
-            v_a.insert(0, "전송", False)
-            pick_a = st.data_editor(
-                v_a[["전송","안건명","입안자","팀","상태","입안일"]],
-                use_container_width=True, hide_index=True, disabled=not can_edit(),
-                column_config={"전송": st.column_config.CheckboxColumn("전송")}
-            )
-            selected_agenda_indices = pick_a.index[pick_a["전송"] == True].tolist()
-            if st.button("📨 선택 안건 디스코드 전송", type="primary", disabled=(not can_edit() or not selected_agenda_indices), use_container_width=True):
-                sel_agendas = u_agendas.iloc[selected_agenda_indices].copy()
-                fields = [{
-                    "name": f"🗂️ {r['안건명']} ({r['팀']})",
-                    "value": f"👤 입안: {r['입안자']}\n🏷️ 상태: {r['상태']}\n📅 입안일: {r['입안일']}",
-                    "inline": False
-                } for _, r in sel_agendas.iterrows()]
-
-                ok, msg = send_discord(fields, "📌 신규 안건 알림", "Hallaon Agenda Bot", color=5793266)
-                if ok:
-                    sent_ids = set(sel_agendas["id"].tolist())
-                    agenda_df["sent"] = agenda_df["id"].apply(lambda x: "True" if x in sent_ids or str(agenda_df.loc[agenda_df["id"]==x, "sent"].iloc[0]) == "True" else "False")
-                    st.session_state.agenda_df = agenda_df
-                    save_df_to_gsheet(agenda_df, WORKSHEET_AGENDA)
-                    st.success(msg)
-                    st.rerun()
-                else: st.error(msg)
+        if not can_edit(): 
+            st.info("조회 권한에서는 디스코드 전송이 불가합니다. '권한 전환'으로 로그인하세요.")
+    
+        t_task, t_agenda = st.tabs(["📋 업무 전송", "🗂️ 안건 전송"])
+    
+        with t_task:
+            u_tasks = tasks_df[tasks_df["sent"].astype(str) != "True"].reset_index(drop=True)
+            if u_tasks.empty: 
+                st.info("현재 미전송 상태인 신규 업무가 없습니다.")
+            else:
+                v_t = u_tasks.copy()
+                v_t.insert(0, "전송", False)
+                
+                st.markdown("<div style='margin-bottom:12px;font-size:13px;font-weight:600;color:#E8EDF5;'>디스코드로 알릴 업무를 선택하세요:</div>", unsafe_allow_html=True)
+                pick_t = st.data_editor(
+                    v_t[["전송", "WBS_코드", "업무명", "담당자", "팀", "상태", "시작일", "종료일"]],
+                    use_container_width=True, hide_index=True, disabled=not can_edit(),
+                    column_config={"전송": st.column_config.CheckboxColumn("선택", width="small")}
+                )
+                
+                selected_task_indices = pick_t.index[pick_t["전송"] == True].tolist()
+                if st.button("🚀 선택 업무 디스코드 전송", type="primary", disabled=(not can_edit() or not selected_task_indices), use_container_width=True):
+                    sel_tasks = u_tasks.iloc[selected_task_indices].copy()
+                    fields = [{
+                        "name": f"🔹 {r['업무명']} ({r['팀']})",
+                        "value": f"👤 담당: {r['담당자']}\n🏷️ 상태: {r['상태']}\n📅 일정: {r['시작일']} → {r['종료일']}\n📝 WBS: {r.get('WBS_코드', '')}",
+                        "inline": False
+                    } for _, r in sel_tasks.iterrows()]
+    
+                    # 새로운 Accent Blue 색상 코드 (#6C9CFF -> 7118079)
+                    ok, msg = send_discord(fields, "🔔 신규 업무 알림", "Hallaon Roadmap Bot", color=7118079)
+                    if ok:
+                        sent_ids = set(sel_tasks["id"].tolist())
+                        tasks_df["sent"] = tasks_df["id"].apply(
+                            lambda x: "True" if x in sent_ids or str(tasks_df.loc[tasks_df["id"]==x, "sent"].iloc[0]) == "True" else "False"
+                        )
+                        st.session_state.tasks_df = tasks_df
+                        save_df_to_gsheet(tasks_df, WORKSHEET_TASKS)
+                        st.success(msg)
+                        st.rerun()
+                    else: 
+                        st.error(msg)
+    
+        with t_agenda:
+            u_agendas = agenda_df[agenda_df["sent"].astype(str) != "True"].reset_index(drop=True)
+            if u_agendas.empty: 
+                st.info("현재 미전송 상태인 신규 안건이 없습니다.")
+            else:
+                v_a = u_agendas.copy()
+                v_a.insert(0, "전송", False)
+                
+                st.markdown("<div style='margin-bottom:12px;font-size:13px;font-weight:600;color:#E8EDF5;'>디스코드로 알릴 안건을 선택하세요:</div>", unsafe_allow_html=True)
+                pick_a = st.data_editor(
+                    v_a[["전송", "안건명", "입안자", "팀", "상태", "입안일"]],
+                    use_container_width=True, hide_index=True, disabled=not can_edit(),
+                    column_config={"전송": st.column_config.CheckboxColumn("선택", width="small")}
+                )
+                
+                selected_agenda_indices = pick_a.index[pick_a["전송"] == True].tolist()
+                if st.button("📨 선택 안건 디스코드 전송", type="primary", disabled=(not can_edit() or not selected_agenda_indices), use_container_width=True):
+                    sel_agendas = u_agendas.iloc[selected_agenda_indices].copy()
+                    fields = [{
+                        "name": f"🗂️ {r['안건명']} ({r['팀']})",
+                        "value": f"👤 입안: {r['입안자']}\n🏷️ 상태: {r['상태']}\n📅 입안일: {r['입안일']}",
+                        "inline": False
+                    } for _, r in sel_agendas.iterrows()]
+    
+                    # 새로운 Soft Rose 색상 코드 (#FF7EB3 -> 16744115)
+                    ok, msg = send_discord(fields, "📌 신규 안건 알림", "Hallaon Agenda Bot", color=16744115)
+                    if ok:
+                        sent_ids = set(sel_agendas["id"].tolist())
+                        agenda_df["sent"] = agenda_df["id"].apply(
+                            lambda x: "True" if x in sent_ids or str(agenda_df.loc[agenda_df["id"]==x, "sent"].iloc[0]) == "True" else "False"
+                        )
+                        st.session_state.agenda_df = agenda_df
+                        save_df_to_gsheet(agenda_df, WORKSHEET_AGENDA)
+                        st.success(msg)
+                        st.rerun()
+                    else: 
+                        st.error(msg)
 
