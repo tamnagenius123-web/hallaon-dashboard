@@ -1842,12 +1842,12 @@ elif menu == "📄 문서":
 # Tab: 작업 전송
 # =========================
 elif menu == "🤖 작업 전송":
-st.markdown("""
-    <div style="margin-bottom:24px;">
-        <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
-        <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""
+        <div style="margin-bottom:24px;">
+            <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
+            <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     if not can_edit(): 
         st.info("조회 권한에서는 디스코드 전송이 불가합니다. '권한 전환'으로 로그인하세요.")
