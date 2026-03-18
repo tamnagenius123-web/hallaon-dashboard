@@ -243,6 +243,7 @@ section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div + la
 button[data-testid="stSidebarCollapsedControl"],
 button[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important; /* 🚨 부모(header)가 숨겨져도 이 버튼은 무조건 보이도록 강제! */
     background: var(--accent) !important;
     border: none !important;
     border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
@@ -262,6 +263,7 @@ button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapsedControl"] svg,
 button[data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapsedControl"] svg {
+    visibility: visible !important; /* 🚨 내부 아이콘도 보이도록 강제 */
     color: var(--tx-inverse) !important;
     fill: var(--tx-inverse) !important;
     width: 20px !important;
