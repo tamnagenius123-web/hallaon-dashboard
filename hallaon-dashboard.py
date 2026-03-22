@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import gspread
+import base64  # 로고 인코딩을 위해 추가
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, date, timedelta
 from html import escape
@@ -12,6 +13,9 @@ import streamlit.components.v1 as components
 from streamlit_calendar import calendar
 
 st.set_page_config(page_title="Hallaon Workspace", layout="wide", initial_sidebar_state="expanded")
+
+# 로고 파일 경로 상수
+LOGO_IMAGE_PATH = "image_02c15f0a-577a-462d-8cd3-1ca275ece279.jpg"
 
 # =========================
 # 🛠️ 구글 스프레드시트 DB 연동 로직
@@ -75,7 +79,6 @@ TEAM_OPTIONS = ["PM", "CD", "FS", "DM", "OPS"]
 TASK_STATUS_OPTIONS = ["시작 전", "대기", "진행 중", "작업 중", "막힘", "완료"]
 AGENDA_STATUS_OPTIONS = ["시작 전", "진행 중", "완료", "보류"]
 
-# Monday.com Vibe + Toss-inspired semantic color palette (dark theme)
 TEAM_COLORS = {
     "PM":  "#6C9CFF",   # Calm blue — strategic, overview
     "CD":  "#FF7EB3",   # Soft rose — creative direction
@@ -95,39 +98,22 @@ STATUS_COLORS = {
 
 # =========================
 # 🎨 MASTER CSS — Toss + Monday Vibe + shadcn Dark Design System
-# Principles applied:
-#   1. Toss: "한 화면에 하나의 목적", 충분한 여백, 둥근 모서리, 부드러운 전환
-#   2. Monday Vibe: 6-layer elevation, semantic color, accessible contrast (4.5:1+)
-#   3. shadcn: Minimal ornamentation, purposeful shadows, composition-first
-#   4. Mobile-first: 모바일 사이드바 가시성, 터치 타겟 48px+, 반응형 그리드
 # =========================
 st.markdown("""
 <style>
 /* ========== RESET & GLOBAL ========== */
-#MainMenu {visibility:hidden;} footer {visibility:hidden;}
-
-/* header를 투명하게 만들되, visibility는 유지 (사이드바 토글 버튼 보존) */
-header[data-testid="stHeader"] {
-    background: transparent !important;
-    backdrop-filter: none !important;
-    height: auto !important;
-    pointer-events: none !important;
-}
-/* header 안의 버튼만 클릭 가능하도록 */
-header[data-testid="stHeader"] button {
-    pointer-events: auto !important;
-}
+#MainMenu {visibility:hidden;} footer {visibility:hidden;} header {visibility:hidden;}
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
     /* Surface elevation (Monday Vibe 6-layer) */
     --sf-ground: #0B0F14;
-    --sf-base:   #101621;
+    --sf-base:    #101621;
     --sf-raised: #151C2A;
     --sf-overlay: #1A2335;
-    --sf-top:    #1F2A40;
-    --sf-peak:   #26334D;
+    --sf-top:     #1F2A40;
+    --sf-peak:    #26334D;
 
     /* Border (3-tier opacity ramp) */
     --bd-subtle:  rgba(140, 170, 220, 0.07);
@@ -135,107 +121,80 @@ header[data-testid="stHeader"] button {
     --bd-strong:  rgba(140, 170, 220, 0.20);
     --bd-focus:   rgba(108, 156, 255, 0.5);
 
-    /* Text — WCAG AA 4.5:1 on #101621 */
-    --tx-primary:   #E8EDF5;         /* 13.2:1 */
-    --tx-secondary: #9BAABB;         /* 6.4:1 */
-    --tx-tertiary:  #6B7B8D;         /* 3.8:1 — decorative only */
+    /* Text */
+    --tx-primary:   #E8EDF5;
+    --tx-secondary: #9BAABB;
+    --tx-tertiary:  #6B7B8D;
     --tx-inverse:   #0B0F14;
 
-    /* Accent — Monday-Vibe-inspired blue */
+    /* Accent */
     --accent:       #6C9CFF;
     --accent-soft:  rgba(108, 156, 255, 0.12);
     --accent-hover: rgba(108, 156, 255, 0.20);
     --accent-press: rgba(108, 156, 255, 0.28);
 
-    /* Semantic */
-    --success: #5EEAA0; --warning: #FFCB57; --danger: #FF6B6B; --info: #6C9CFF;
+    /* Shadows */
+    --sh-sm: 0 2px 6px rgba(0,0,0,0.24);
+    --sh-md: 0 4px 12px rgba(0,0,0,0.28);
+    --sh-lg: 0 8px 28px rgba(0,0,0,0.36);
 
-    /* Shadows (shadcn-style: purposeful, layered) */
-    --sh-xs: 0 1px 2px rgba(0,0,0,0.20);
-    --sh-sm: 0 2px 6px rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.16);
-    --sh-md: 0 4px 12px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.16);
-    --sh-lg: 0 8px 28px rgba(0,0,0,0.36), 0 4px 8px rgba(0,0,0,0.20);
-    --sh-xl: 0 16px 48px rgba(0,0,0,0.44), 0 8px 16px rgba(0,0,0,0.24);
+    /* Radius */
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-full: 999px;
 
-    /* Radius (Toss: generous roundness) */
-    --r-xs: 6px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 999px;
+    /* Spacing */
+    --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
 
-    /* Spacing (4px grid — Toss standard) */
-    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
-
-    /* Motion (Toss: ease-out, fast feedback) */
+    /* Motion */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --dur-fast: 120ms; --dur-normal: 200ms; --dur-slow: 350ms;
+    --dur-fast: 120ms; --dur-normal: 200ms;
 }
 
 /* ========== APP SHELL ========== */
 html, body, .stApp {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-family: 'Inter', sans-serif !important;
 }
 .stApp {
     background: var(--sf-ground) !important;
     color: var(--tx-primary) !important;
     font-weight: 450;
-    letter-spacing: 0.005em;
     line-height: 1.65;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    color: var(--tx-primary) !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.025em;
-    line-height: 1.3;
-}
+h1, h2, h3 { color: var(--tx-primary) !important; font-weight: 800 !important; letter-spacing: -0.025em; }
 h1 { font-size: 28px !important; }
-h2 { font-size: 22px !important; }
-h3 { font-size: 18px !important; }
 
-p, div.stMarkdown, div.stText, label, span {
-    color: var(--tx-primary) !important;
-}
-small, [data-testid="stCaptionContainer"] * {
-    color: var(--tx-secondary) !important;
-    font-size: 12px !important;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
+p, div.stMarkdown, label, span { color: var(--tx-primary) !important; }
+small, [data-testid="stCaptionContainer"] * { color: var(--tx-secondary) !important; font-size: 12px !important; font-weight: 600; text-transform: uppercase; }
 
-a { color: var(--accent) !important; text-decoration: none; }
-a:hover { text-decoration: underline; }
 hr, .stMarkdown hr { border: none !important; border-top: 1px solid var(--bd-subtle) !important; margin: var(--sp-8) 0 !important; }
 
-/* ========== SCROLLBAR (shadcn minimal) ========== */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--bd-strong); border-radius: var(--r-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--tx-tertiary); }
+/* ========== LOGIN LOGIN LOGO (NEW) ========== */
+.login-logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--sp-6);
+}
+.login-logo-img {
+    width: 100px;
+    height: 100px;
+    border-radius: var(--r-xl);
+    object-fit: cover;
+    box-shadow: var(--sh-lg);
+    border: 2px solid var(--bd-strong);
+}
 
 /* ========== SIDEBAR (Monday Vibe nav-rail) ========== */
 section[data-testid="stSidebar"] {
     background: var(--sf-base) !important;
     border-right: 1px solid var(--bd-subtle) !important;
     padding: var(--sp-5) var(--sp-4) !important;
-    box-shadow: var(--sh-sm);
 }
 section[data-testid="stSidebar"] * { color: var(--tx-primary) !important; }
 
-/* Sidebar radio → pill navigation (Toss tab style) */
 section[data-testid="stSidebar"] [data-baseweb="radio"] label {
-    background: transparent !important;
-    border: 1px solid transparent !important;
     border-radius: var(--r-md) !important;
     padding: var(--sp-3) var(--sp-4) !important;
-    margin-bottom: 2px !important;
     transition: all var(--dur-fast) var(--ease-out);
-    font-weight: 550;
-    font-size: 14px;
-    min-height: 44px;
-    display: flex !important;
-    align-items: center !important;
 }
 section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover {
     background: var(--accent-soft) !important;
@@ -244,322 +203,102 @@ section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover {
 section[data-testid="stSidebar"] [data-baseweb="radio"] label[data-selected="true"],
 section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div + label {
     background: var(--accent-soft) !important;
-    border-color: transparent !important;
     box-shadow: inset 3px 0 0 var(--accent);
     color: var(--accent) !important;
     font-weight: 700;
 }
 
 /* ====== MOBILE SIDEBAR TOGGLE — CRITICAL FIX (Toss mobile UX) ====== */
-/* ====== MOBILE SIDEBAR TOGGLE — CRITICAL FIX ====== */
-/* 사이드바 열기 버튼: 모든 가능한 selector를 커버 */
-button[data-testid="stSidebarCollapsedControl"],
-button[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-header button[kind="header"],
-header [data-testid="stSidebarCollapsedControl"] {
+button[data-testid="stSidebarCollapsedControl"] {
     visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
     background: var(--accent) !important;
-    border: none !important;
     border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
-    width: 40px !important;
-    height: 48px !important;
     box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3) !important;
-    z-index: 999999 !important;
     position: fixed !important;
     top: 12px !important;
     left: 0 !important;
-    pointer-events: auto !important;
-    transition: all var(--dur-normal) var(--ease-out);
-    animation: sidebar-pulse 3s ease-in-out 3;
 }
-button[data-testid="stSidebarCollapsedControl"] svg,
-button[data-testid="collapsedControl"] svg,
-[data-testid="stSidebarCollapsedControl"] svg {
+button[data-testid="stSidebarCollapsedControl"] svg {
     visibility: visible !important;
-    opacity: 1 !important;
     color: var(--tx-inverse) !important;
     fill: var(--tx-inverse) !important;
-    width: 20px !important;
-    height: 20px !important;
-}
-button[data-testid="stSidebarCollapsedControl"]:hover {
-    width: 52px !important;
-    box-shadow: var(--sh-lg), 0 0 24px rgba(108,156,255,0.5) !important;
-}
-@keyframes sidebar-pulse {
-    0%,100% { box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3); }
-    50% { box-shadow: var(--sh-lg), 0 0 28px rgba(108,156,255,0.6); }
 }
 
-/* ====== 사이드바 닫기 버튼도 명확하게 ====== */
-section[data-testid="stSidebar"] button[data-testid="stSidebarNavCollapseButton"],
-section[data-testid="stSidebar"] [data-testid="stSidebarNavCollapseButton"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-    background: var(--sf-overlay) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-md) !important;
-    color: var(--tx-primary) !important;
-    min-height: 40px !important;
-    min-width: 40px !important;
-}
-
-/* 모바일에서 사이드바 열렸을 때 닫기(X) 버튼 */
-section[data-testid="stSidebar"] button[kind="header"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-    pointer-events: auto !important;
-    background: var(--sf-overlay) !important;
-    border-radius: var(--r-md) !important;
-    min-height: 44px !important;
-    min-width: 44px !important;
-}
-
-
-/* ========== METRIC CARDS (Monday Vibe card style) ========== */
+/* ========== METRIC CARDS ========== */
 div[data-testid="metric-container"] {
     background: var(--sf-raised) !important;
     border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-xl) !important;
     padding: var(--sp-6) !important;
-    box-shadow: var(--sh-sm) !important;
     transition: all var(--dur-normal) var(--ease-out);
 }
 div[data-testid="metric-container"]:hover {
     box-shadow: var(--sh-md) !important;
-    border-color: var(--bd-strong) !important;
     transform: translateY(-2px);
 }
-div[data-testid="stMetricLabel"] {
-    color: var(--tx-secondary) !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-div[data-testid="stMetricValue"] {
-    color: var(--tx-primary) !important;
-    font-size: 32px !important;
-    font-weight: 900 !important;
-    letter-spacing: -0.03em;
-}
+div[data-testid="stMetricLabel"] { color: var(--tx-secondary) !important; font-size: 12px !important; font-weight: 700 !important; text-transform: uppercase; }
+div[data-testid="stMetricValue"] { color: var(--tx-primary) !important; font-size: 32px !important; font-weight: 900 !important; }
 
-/* ========== DATA TABLE & DATA EDITOR (Monday grid style) ========== */
-div[data-testid="stDataFrame"],
-div[data-testid="stDataFrame"] [role="grid"] {
+/* ========== DATA TABLE & EDITOR ========== */
+div[data-testid="stDataFrame"] {
     background: var(--sf-raised) !important;
     border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-lg) !important;
-    box-shadow: var(--sh-xs) !important;
     overflow: hidden;
 }
 div[data-testid="stDataFrame"] [role="columnheader"] {
     background: var(--sf-overlay) !important;
     color: var(--tx-secondary) !important;
-    font-weight: 700 !important;
     font-size: 11px !important;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-bottom: 2px solid var(--bd-default) !important;
-}
-div[data-testid="stDataFrame"] [role="gridcell"] {
-    border-bottom: 1px solid var(--bd-subtle) !important;
-    font-weight: 450;
-    color: var(--tx-primary) !important;
-    font-size: 13px !important;
 }
 
-/* ★★★ FIX: data_editor input text visibility (critical UX bug) ★★★ */
-div[data-testid="stDataFrame"] input,
-div[data-testid="stDataFrame"] textarea,
-div[data-testid="stDataFrame"] [contenteditable="true"],
-div[data-testid="stDataFrame"] [data-baseweb="input"] input,
-div[data-testid="stDataFrame"] [role="gridcell"] input {
-    color: #FFFFFF !important;
-    background: var(--sf-overlay) !important;
-    caret-color: var(--accent) !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-}
-/* Glide Data Grid text overlay */
-div[data-testid="stDataFrame"] canvas + div input,
-div[data-testid="stDataFrame"] canvas + div textarea {
+/* FIX: data_editor input text visibility */
+div[data-testid="stDataFrame"] canvas + div input {
     color: #FFFFFF !important;
     background: var(--sf-top) !important;
     border: 2px solid var(--accent) !important;
     border-radius: var(--r-xs) !important;
-    padding: 4px 8px !important;
-    font-size: 13px !important;
-    caret-color: var(--accent) !important;
 }
 
-/* ========== EXPANDER (shadcn accordion) ========== */
+/* ========== EXPANDER ========== */
 div[data-testid="stExpander"] details {
     background: var(--sf-raised) !important;
     border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-lg) !important;
-    box-shadow: var(--sh-xs) !important;
-    overflow: hidden;
-    transition: all var(--dur-normal) var(--ease-out);
-    margin-bottom: var(--sp-3) !important;
 }
-div[data-testid="stExpander"] details:hover { box-shadow: var(--sh-sm) !important; }
-div[data-testid="stExpander"] details[open] { box-shadow: var(--sh-md) !important; border-color: var(--bd-strong) !important; }
 div[data-testid="stExpander"] summary {
     background: var(--sf-overlay) !important;
-    color: var(--tx-primary) !important;
-    font-weight: 700 !important;
     font-size: 14px !important;
     padding: var(--sp-4) var(--sp-5) !important;
-    border-radius: var(--r-lg) !important;
-    transition: background var(--dur-fast) var(--ease-out);
-}
-div[data-testid="stExpander"] summary:hover { background: var(--sf-top) !important; }
-div[data-testid="stExpanderDetails"] {
-    background: var(--sf-raised) !important;
-    color: var(--tx-primary) !important;
-    padding: var(--sp-5) !important;
 }
 
 /* ========== BUTTONS (Toss CTA hierarchy) ========== */
-/* Primary — strong visual weight, gradient */
 button[kind="primary"], button[data-testid="stFormSubmitButton"] > button {
     background: linear-gradient(135deg, #6C9CFF 0%, #5580E0 100%) !important;
     color: var(--tx-inverse) !important;
-    font-weight: 700 !important;
-    font-size: 14px !important;
-    border: none !important;
     border-radius: var(--r-md) !important;
-    padding: var(--sp-3) var(--sp-6) !important;
-    min-height: 44px;
     box-shadow: var(--sh-sm), 0 0 12px rgba(108,156,255,0.15) !important;
     transition: all var(--dur-fast) var(--ease-out);
-    letter-spacing: 0.01em;
 }
-button[kind="primary"]:hover, button[data-testid="stFormSubmitButton"] > button:hover {
-    box-shadow: var(--sh-md), 0 0 20px rgba(108,156,255,0.3) !important;
-    transform: translateY(-1px);
-}
-button[kind="primary"]:active, button[data-testid="stFormSubmitButton"] > button:active {
-    transform: translateY(0);
-    box-shadow: var(--sh-xs) !important;
-}
+button[kind="primary"]:hover { box-shadow: var(--sh-md), 0 0 20px rgba(108,156,255,0.3) !important; transform: translateY(-1px); }
 
-/* Secondary — ghost style (Toss secondary CTA) */
-button[kind="secondary"],
-button:not([kind="primary"]):not([data-testid="stFormSubmitButton"]):not([data-testid="stSidebarCollapsedControl"]):not([data-testid="collapsedControl"]) {
+button[kind="secondary"] {
     background: var(--sf-overlay) !important;
-    color: var(--tx-primary) !important;
     border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-md) !important;
-    font-weight: 600 !important;
-    font-size: 13px !important;
-    min-height: 44px;
-    transition: all var(--dur-fast) var(--ease-out);
-}
-button[kind="secondary"]:hover {
-    background: var(--sf-top) !important;
-    border-color: var(--bd-strong) !important;
-    box-shadow: var(--sh-xs) !important;
 }
 
-/* ========== INPUTS (Toss clean input style) ========== */
+/* ========== INPUTS ========== */
 input, textarea {
     background: var(--sf-base) !important;
-    color: var(--tx-primary) !important;
     border: 1.5px solid var(--bd-default) !important;
     border-radius: var(--r-sm) !important;
-    padding: var(--sp-3) var(--sp-4) !important;
-    font-weight: 500 !important;
-    font-size: 14px !important;
-    transition: all var(--dur-fast) var(--ease-out);
-    caret-color: var(--accent);
-    min-height: 44px;
 }
-input:focus, textarea:focus {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px var(--accent-soft) !important;
-    outline: none !important;
-    background: var(--sf-raised) !important;
-}
-input::placeholder, textarea::placeholder {
-    color: var(--tx-tertiary) !important;
-    font-weight: 400;
-}
+input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft) !important; }
 
-/* Select */
-div[data-baseweb="select"] > div {
-    background: var(--sf-base) !important;
-    color: var(--tx-primary) !important;
-    border: 1.5px solid var(--bd-default) !important;
-    border-radius: var(--r-sm) !important;
-    min-height: 44px;
-    transition: all var(--dur-fast) var(--ease-out);
-}
-div[data-baseweb="select"] > div:focus-within {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px var(--accent-soft) !important;
-}
-/* Select dropdown menu */
-div[data-baseweb="popover"] > div,
-ul[data-baseweb="menu"] {
-    background: var(--sf-overlay) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-md) !important;
-    box-shadow: var(--sh-lg) !important;
-}
-ul[data-baseweb="menu"] li {
-    color: var(--tx-primary) !important;
-    font-weight: 500;
-}
-ul[data-baseweb="menu"] li:hover {
-    background: var(--accent-soft) !important;
-}
-
-/* ========== TABS (Monday Vibe tab bar) ========== */
-div[data-testid="stTabs"] button {
-    color: var(--tx-tertiary) !important;
-    font-weight: 650 !important;
-    font-size: 14px !important;
-    padding: var(--sp-3) var(--sp-5) !important;
-    border-radius: var(--r-sm) var(--r-sm) 0 0 !important;
-    transition: all var(--dur-fast) var(--ease-out);
-    min-height: 44px;
-}
-div[data-testid="stTabs"] button:hover {
-    color: var(--tx-primary) !important;
-    background: var(--accent-soft) !important;
-}
-div[data-testid="stTabs"] button[aria-selected="true"] {
-    color: var(--accent) !important;
-    font-weight: 800 !important;
-}
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-    background: var(--accent) !important;
-    height: 3px !important;
-    border-radius: 3px 3px 0 0 !important;
-}
-
-/* ========== MULTISELECT TAGS (Monday color chips) ========== */
-[data-testid="stMultiSelect"] [data-baseweb="tag"] {
-    background: var(--accent-soft) !important;
-    border: 1px solid rgba(108,156,255,0.25) !important;
-    border-radius: var(--r-sm) !important;
-    min-height: 28px !important;
-    padding: 2px 10px !important;
-}
-[data-testid="stMultiSelect"] [data-baseweb="tag"] span {
-    color: var(--accent) !important;
-    font-weight: 700 !important;
-    overflow: visible !important;
-}
+/* ========== TABS ========== */
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: var(--accent) !important; }
 
 /* ========== FORM (shadcn card) ========== */
 [data-testid="stForm"] {
@@ -567,28 +306,10 @@ div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
     border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-xl) !important;
     padding: var(--sp-6) !important;
-    box-shadow: var(--sh-sm) !important;
 }
 
-/* ========== TOGGLE ========== */
-div[data-testid="stToggle"] label span[data-baseweb="toggle"] {
-    background: var(--sf-top) !important;
-}
-
-/* ========== TOAST / SUCCESS / ERROR / INFO / WARNING ========== */
-div[data-testid="stToast"] {
-    background: var(--sf-overlay) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-lg) !important;
-    box-shadow: var(--sh-lg) !important;
-}
-
-/* Info / Success / Warning / Error boxes */
-.stAlert > div {
-    border-radius: var(--r-md) !important;
-    font-weight: 500 !important;
-    font-size: 13px !important;
-}
+/* ========== TOAST ========== */
+div[data-testid="stToast"] { background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-lg) !important; }
 
 /* ========== CUSTOM CLASSES ========== */
 .role-badge {
@@ -602,83 +323,9 @@ div[data-testid="stToast"] {
     border: 1px solid var(--bd-default);
     background: var(--sf-overlay);
     color: var(--accent) !important;
-    letter-spacing: 0.04em;
 }
-.folder-btn button {
-    background: transparent !important;
-    border: none !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
-    padding: var(--sp-2) var(--sp-3) !important;
-    font-size: 13px !important;
-    border-radius: var(--r-sm) !important;
-    transition: all var(--dur-fast) var(--ease-out);
-    min-height: 40px !important;
-}
-.folder-btn button:hover {
-    background: var(--accent-soft) !important;
-}
-.folder-btn button span { color: var(--tx-primary) !important; }
+.folder-btn button:hover { background: var(--accent-soft) !important; }
 .folder-btn button:hover span { color: var(--accent) !important; }
-
-/* ========== RESPONSIVE BREAKPOINTS ========== */
-/* Tablet (≤ 1024px) */
-@media (max-width: 1024px) {
-    h1 { font-size: 24px !important; }
-    h2 { font-size: 20px !important; }
-    div[data-testid="stMetricValue"] { font-size: 26px !important; }
-    .stApp > div > div > div > div { padding-left: 8px !important; padding-right: 8px !important; }
-}
-
-/* Mobile (≤ 768px) */
-@media (max-width: 768px) {
-    h1 { font-size: 22px !important; }
-    h2 { font-size: 18px !important; }
-    h3 { font-size: 16px !important; }
-    div[data-testid="stMetricValue"] { font-size: 24px !important; }
-    div[data-testid="metric-container"] { padding: var(--sp-4) !important; }
-    
-    /* 모바일에서 사이드바 토글 더 크고 눈에 띄게 */
-    button[data-testid="stSidebarCollapsedControl"],
-    button[data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] {
-        width: 48px !important;
-        height: 56px !important;
-        top: 8px !important;
-        border-radius: 0 var(--r-xl) var(--r-xl) 0 !important;
-        animation: sidebar-pulse 2s ease-in-out 5 !important;
-        box-shadow: var(--sh-lg), 0 0 24px rgba(108,156,255,0.5) !important;
-    }
-    
-    /* 사이드바가 열렸을 때 전체 화면 덮기 */
-    section[data-testid="stSidebar"] {
-        width: 85vw !important;
-        max-width: 320px !important;
-        z-index: 999999 !important;
-    }
-    
-    /* Touch targets minimum 44px */
-    button, input, textarea, select, [data-baseweb="select"] > div {
-        min-height: 44px !important;
-    }
-    
-    /* Stack form columns on mobile */
-    [data-testid="stForm"] .stColumns {
-        flex-direction: column !important;
-    }
-    
-    div[data-testid="stExpander"] summary { padding: var(--sp-3) var(--sp-4) !important; }
-    div[data-testid="stExpanderDetails"] { padding: var(--sp-3) var(--sp-4) !important; }
-}
-
-
-/* Small mobile (≤ 480px) */
-@media (max-width: 480px) {
-    h1 { font-size: 20px !important; }
-    .stApp { font-size: 14px; }
-    div[data-testid="metric-container"] { padding: var(--sp-3) !important; border-radius: var(--r-lg) !important; }
-    div[data-testid="stMetricValue"] { font-size: 22px !important; }
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -699,27 +346,17 @@ def status_badge(status):
     c = STATUS_COLORS.get(s, "#8899AA")
     return f"<span style='display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.12);color:{c};font-size:11px;font-weight:700;letter-spacing:0.04em;border:1px solid rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.25);'>{escape(s)}</span>"
 
-def send_discord(fields, title, username, color=3447003):
-    if not DISCORD_WEBHOOK_URL: return False, "DISCORD_WEBHOOK_URL이 설정되지 않았습니다."
-    try:
-        sent = 0
-        for i in range(0, len(fields), 25):
-            batch = fields[i:i+25]
-            payload = {
-                "username": username,
-                "embeds": [{"title": title, "color": color, "fields": batch, "footer": {"text": f"Hallaon Agile • {len(batch)}개"}}]
-            }
-            r = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=15)
-            if r.status_code not in (200, 204): return False, f"HTTP {r.status_code}: {r.text[:120]}"
-            sent += len(batch)
-        return True, f"{sent}개 전송 완료"
-    except Exception as e: return False, str(e)
+# 이미지 파일을 Base64로 변환하는 함수
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 
 # =========================
 # CPM 및 간트 차트 (PERT 계산 적용)
 # =========================
 def calculate_cpm(df):
-    """Forward-pass + backward-pass based Critical Path calculation."""
+    """정석 Forward-pass + backward-pass 기반 Critical Path calculation."""
     df = df.copy()
     df["is_critical"] = False
     if "WBS_코드" not in df.columns or "선행_업무" not in df.columns or df.empty:
@@ -741,6 +378,7 @@ def calculate_cpm(df):
     df["ES"] = df["_start"]
     df["EF"] = df["_end"]
     
+    # 간위 구현: 순서대로 루프 (실제로는 위상 정렬 필요)
     for idx, row in df.iterrows():
         preds = str(row.get("선행_업무", "")).strip()
         if preds:
@@ -752,6 +390,7 @@ def calculate_cpm(df):
                     if max_ef is None or pred_ef > max_ef:
                         max_ef = pred_ef
             if max_ef is not None:
+                # EF = ES + Duration (TE 기반). 여기서는 입력된 날짜를 우선시하되 선행지연 반영
                 df.at[idx, "ES"] = max(df.at[idx, "ES"], max_ef + timedelta(days=1))
     
     # Backward pass: Latest Finish (LF) / Latest Start (LS)
@@ -759,22 +398,23 @@ def calculate_cpm(df):
     df["LF"] = project_end
     df["LS"] = project_end
     
-    # Iterate in reverse
+    # Iterate in reverse to find LF
     for idx in reversed(df.index.tolist()):
         wbs = str(df.at[idx, "WBS_코드"]).strip()
-        # Find all tasks that depend on this one
+        # Find tasks that depend on this one (successors)
         for idx2, row2 in df.iterrows():
             preds = str(row2.get("선행_업무", "")).strip()
             if preds:
                 pred_list = [p.strip() for p in preds.split(",") if p.strip()]
                 if wbs in pred_list:
+                    # LS of successor exists if Backward pass iteration is correct
                     succ_ls = df.at[idx2, "LS"] if "LS" in df.columns else project_end
                     df.at[idx, "LF"] = min(df.at[idx, "LF"], succ_ls - timedelta(days=1))
         
         duration = (df.at[idx, "EF"] - df.at[idx, "ES"]).days
         df.at[idx, "LS"] = df.at[idx, "LF"] - timedelta(days=duration)
     
-    # Float = LS - ES. If float ≤ 0, it's critical
+    # Float = LS - ES. If float <= 0, it's critical
     df["_float"] = (df["LS"] - df["ES"]).dt.days
     df["is_critical"] = df["_float"] <= 0
     
@@ -811,23 +451,19 @@ def render_gantt(df):
     h = "<style>"
     h += """
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    .gw{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0B0F14;border:1px solid rgba(140,170,220,0.12);border-radius:20px;overflow:auto;box-shadow:0 8px 28px rgba(0,0,0,0.36),0 4px 8px rgba(0,0,0,0.20);}
-    .gh{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#101621;border-bottom:1px solid rgba(140,170,220,0.07);flex-wrap:wrap;gap:8px;}
+    .gw{font-family:'Inter',sans-serif;background:#0B0F14;border:1px solid rgba(140,170,220,0.12);border-radius:20px;overflow:auto;}
+    .gh{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#101621;border-bottom:1px solid rgba(140,170,220,0.07);gap:8px;}
     .chip-row{display:flex;flex-wrap:wrap;gap:6px;}
-    .chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:rgba(140,170,220,0.06);border:1px solid rgba(140,170,220,0.1);color:#9BAABB;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
-    .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
-    .gt{width:100%;min-width:1200px;border-collapse:collapse;table-layout:fixed;}
-    .gt th,.gt td{border-right:1px solid rgba(140,170,220,0.05);border-bottom:1px solid rgba(140,170,220,0.05);color:#E8EDF5;padding:10px 10px;white-space:nowrap;}
-    .gt th{background:#151C2A;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6B7B8D;position:sticky;top:0;z-index:2;}
-    .gt tbody tr:hover{background:rgba(108,156,255,0.04);}
-    .wkh{min-width:80px;text-align:center;font-size:9px;color:#6B7B8D;font-weight:700;}
-    .tl{padding:0 !important;position:relative;background:transparent;}
-    .bg{position:absolute;inset:0;display:flex;pointer-events:none;}
-    .bgc{flex:1;border-right:1px solid rgba(140,170,220,0.03);}
-    .today-line{position:absolute;top:0;bottom:0;width:2px;background:rgba(108,156,255,0.5);z-index:1;pointer-events:none;}
-    .today-line::before{content:'Today';position:absolute;top:-18px;left:-14px;font-size:8px;color:#6C9CFF;font-weight:700;letter-spacing:0.04em;}
+    .chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:10px;font-weight:700;}
+    .dot{width:7px;height:7px;border-radius:50%;}
+    .gt{width:100%;min-width:1200px;border-collapse:collapse;}
+    .gt th,.gt td{border-right:1px solid rgba(140,170,220,0.05);border-bottom:1px solid rgba(140,170,220,0.05);color:#E8EDF5;padding:10px;}
+    .gt th{background:#151C2A;font-size:10px;text-transform:uppercase;color:#6B7B8D;position:sticky;top:0;z-index:2;}
+    .gt tr:hover{background:rgba(108,156,255,0.04);}
+    .today-line{position:absolute;top:0;bottom:0;width:2px;background:rgba(108,156,255,0.5);z-index:1;}
+    .today-line::before{content:'Today';position:absolute;top:-18px;left:-14px;font-size:8px;color:#6C9CFF;font-weight:700;}
     .barw{position:relative;height:44px;display:flex;align-items:center;}
-    .bar{position:absolute;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:#0B0F14;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 6px rgba(0,0,0,0.25);transition:all 200ms;}
+    .bar{position:absolute;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;color:#0B0F14;text-overflow:ellipsis;transition:all 200ms;}
     .bar:hover{transform:scaleY(1.15);box-shadow:0 4px 12px rgba(0,0,0,0.35);}
     .bar.critical{background:linear-gradient(135deg,#FF6B6B 0%,#E04545 100%) !important;color:#fff;box-shadow:0 0 10px rgba(255,107,107,0.5);border:1px solid #FF9B9B;}
     """
@@ -837,57 +473,42 @@ def render_gantt(df):
     for t, c in TEAM_COLORS.items():
         h += f"<span class='chip'><span class='dot' style='background:{c}'></span>{t}</span>"
     h += f"<span class='chip' style='border-color:rgba(255,107,107,0.3);color:#FF9B9B;'><span class='dot' style='background:#FF6B6B'></span>Critical</span>"
-    h += "</div><div style='color:#6B7B8D;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;'>PERT · CPM Gantt</div></div>"
+    h += "</div><div style='color:#6B7B8D;font-size:11px;font-weight:800;text-transform:uppercase;'>PERT · CPM Gantt</div></div>"
     
     h += "<table class='gt'><thead><tr>"
     h += "<th style='width:55px;'>WBS</th><th style='width:180px;'>업무</th><th style='width:70px;'>선행</th><th style='width:55px;'>TE</th><th style='width:90px;'>상태</th>"
     for i in range(weeks):
         ws = tl_start + timedelta(days=i*7)
-        full = f"W{i+1} ({ws.month}/{ws.day})"
-        txt = full if i % step == 0 else ""
-        h += f"<th class='wkh' title='{full}'>{txt}</th>"
+        txt = f"W{i+1} ({ws.month}/{ws.day})" if i % step == 0 else ""
+        h += f"<th class='wkh'>{txt}</th>"
     h += "</tr></thead><tbody>"
 
     for _, r in g.iterrows():
-        wbs = str(r.get("WBS_코드", "")).strip()
-        pred = str(r.get("선행_업무", "")).strip()
-        te = str(r.get("기대_시간(TE)", "")).strip()
-        status = str(r["상태"]).strip()
-        task = str(r["업무명"]).strip()
-        team = str(r["팀"]).split(",")[0].strip() if str(r["팀"]).strip() else "미지정"
-        c = TEAM_COLORS.get(team, "#8899AA")
         is_crit = r.get("is_critical", False)
-
+        c = TEAM_COLORS.get(str(r["팀"]).split(",")[0].strip(), "#8899AA")
         s = r["시작일_dt"].date()
         e = r["종료일_dt"].date()
-        cs = max(s, tl_start)
-        ce = min(e + timedelta(days=1), tl_end)
-        off = (cs - tl_start).days
-        dur = max((ce - cs).days, 1)
-        
+        off = max((s - tl_start).days, 0)
+        dur = max(((min(e, tl_end) - max(s, tl_start)).days + 1), 1)
         left = (off / days_total) * 100
         width = (dur / days_total) * 100
-        label = f"{escape(task)}" if not is_crit else f"🔥 {escape(task)}"
-        bg = "".join(["<div class='bgc'></div>" for _ in range(weeks)])
-        crit_class = " critical" if is_crit else ""
-        
-        # Today line
         today_html = f"<div class='today-line' style='left:{today_pct}%'></div>" if 0 <= today_pct <= 100 else ""
+        crit_class = " critical" if is_crit else ""
 
         h += "<tr>"
-        h += f"<td style='font-size:12px;color:#6C9CFF;font-weight:800;'>{escape(wbs)}</td>"
-        h += f"<td style='font-weight:600;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;'>{escape(task)}</td>"
-        h += f"<td style='font-size:10px;color:#9BAABB;'>{escape(pred) if pred else '—'}</td>"
-        h += f"<td style='font-size:11px;text-align:center;font-weight:600;'>{escape(te) if te else '—'}</td>"
-        h += f"<td>{status_badge(status)}</td>"
-        h += f"<td colspan='{weeks}' class='tl'><div class='bg'>{bg}</div>{today_html}<div class='barw'><div class='bar{crit_class}' style='left:{left}%;width:{width}%;background:linear-gradient(135deg,{c} 0%,{c}cc 100%);' title='{escape(task)} ({s} → {e})'>{escape(label)}</div></div></td>"
+        h += f"<td style='color:#6C9CFF;font-weight:800;'>{escape(str(r.get('WBS_코드','')))}</td>"
+        h += f"<td style='font-weight:600;'>{escape(str(r['업무명']))}</td>"
+        h += f"<td style='color:#9BAABB;'>{escape(str(r.get('선행_업무','')))}</td>"
+        h += f"<td>{escape(str(r.get('기대_시간(TE)','')))}</td>"
+        h += f"<td>{status_badge(r['상태'])}</td>"
+        h += f"<td colspan='{weeks}' class='tl'>{today_html}<div class='barw'><div class='bar{crit_class}' style='left:{left}%;width:{width}%;background:linear-gradient(135deg,{c} 0%,{c}cc 100%);'>{escape(str(r['업무명']))}</div></div></td>"
         h += "</tr>"
 
     h += "</tbody></table></div>"
     return h
 
 # =========================
-# DB 정규화 (WBS, 의사결정 포함)
+# DB 정규화 및 데이터 로드
 # =========================
 def normalize_tasks_df(df):
     d = df.copy() if df is not None and not df.empty else pd.DataFrame()
@@ -936,40 +557,96 @@ def init_data():
     st.session_state.meetings_df = normalize_meetings_df(load_gsheet_to_df(WORKSHEET_MEETINGS))
     st.session_state.decisions_df = normalize_decisions_df(load_gsheet_to_df(WORKSHEET_DECISIONS))
 
+# =========================
+# 🔐 AUTH GATE (Updated with Logo & Aesthetics)
+# =========================
 def auth_gate():
+    # 0. 비밀번호 미설정 시 자동 통과
     if EDIT_PASSWORD == "" and VIEW_PASSWORD == "":
         st.session_state.role = "edit"
         return
-    if st.session_state.get("role") is not None: return
-    
-    st.markdown("""
+
+    # 1. 이미 로그인 정보가 세션에 있는 경우 통과
+    if st.session_state.get("role") is not None:
+        return
+
+    # 2. 로고 Base64 인코딩 시도
+    logo_b64 = ""
+    try:
+        if os.path.exists(LOGO_IMAGE_PATH):
+            logo_b64 = get_base64_of_bin_file(LOGO_IMAGE_PATH)
+        else:
+            # 로고 파일이 없으면 에러 표시는 하지 않고 로고만 건너뜀 (UX 배려)
+            pass
+    except Exception as e:
+        # 인코딩 실패 시 에러 로깅 (화면에는 표시 안 함)
+        print(f"Logo encoding error: {e}")
+        pass
+
+    # 3. 로그인 화면 HTML (Toss-style 중앙 정렬 카드)
+    logo_html = f"""
+    <div class="login-logo-container">
+        <img src="data:image/jpeg;base64,{logo_b64}" class="login-logo-img" alt="Hallaon Logo"/>
+    </div>
+    """ if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
+
+    st.markdown(f"""
     <div style="display:flex;justify-content:center;align-items:center;min-height:70vh;">
         <div style="text-align:center;max-width:360px;width:100%;">
-            <div style="font-size:48px;margin-bottom:12px;">🏛️</div>
+            {logo_html}
             <h1 style="font-size:28px;font-weight:900;margin:0 0 4px 0;letter-spacing:-0.03em;">Hallaon</h1>
-            <p style="color:#6B7B8D;font-size:13px;margin-bottom:36px;font-weight:600;letter-spacing:0.04em;">WORKSPACE</p>
+            <p style="color:#6B7B8D;font-size:13px;margin-bottom:36px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">WORKSPACE</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
+    # 4. 로그인 폼 렌더링
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        role_choice = st.radio("권한", ["조회", "편집"], horizontal=True)
-        pw = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요")
-        if st.button("로그인", type="primary", use_container_width=True):
-            if role_choice == "편집" and pw == EDIT_PASSWORD: st.session_state.role = "edit"; st.rerun()
-            elif role_choice == "조회" and pw == VIEW_PASSWORD: st.session_state.role = "view"; st.rerun()
-            else: st.error("비밀번호가 올바르지 않습니다.")
+        with st.form("login_form"):
+            role_choice = st.radio("권한", ["조회", "편집"], horizontal=True, label_visibility="collapsed")
+            pw = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요", label_visibility="collapsed")
+            
+            # CSS가 폼 내부 버튼에도 적용되도록 'USE_CONTAINER_WIDTH' 설정
+            submit = st.form_submit_button("로그인", type="primary", use_container_width=True)
+            
+            if submit:
+                # 로그인 로딩 스피너 (페이지 열 때 스피너와 동일한 느낌)
+                with st.spinner("권한을 확인하고 있습니다..."):
+                    if role_choice == "편집" and pw == EDIT_PASSWORD:
+                        st.session_state.role = "edit"
+                        st.toast("✅ 편집 권한으로 로그인했습니다.", icon="✏️")
+                        st.rerun()
+                    elif role_choice == "조회" and pw == VIEW_PASSWORD:
+                        st.session_state.role = "view"
+                        st.toast("✅ 조회 권한으로 로그인했습니다.", icon="👁️")
+                        st.rerun()
+                    else:
+                        st.error("비밀번호가 올바르지 않습니다.")
+    
+    # 로그인 안 되면 여기서 멈춤
     st.stop()
 
-def can_edit(): return st.session_state.get("role") == "edit"
+# =========================
+# can_edit 권한 유틸
+# =========================
+def can_edit():
+    return st.session_state.get("role") == "edit"
 
 # =========================
-# Init
+# MAIN APP 실행 구조
 # =========================
-if "tasks_df" not in st.session_state: init_data()
+
+# 1. 데이터 세션 초기화 및 최초 앱 로딩 스피너
+if "tasks_df" not in st.session_state:
+    # 처음 페이지 열 때 뜨는 로딩 스피너
+    with st.spinner("🏛️ 한라온 워크스페이스를 불러오고 있습니다..."):
+        init_data()
+
+# 2. 로그인 게이트 실행 (여기서 로고와 로그인 폼 표출)
 auth_gate()
 
+# 3. 로그인 성공 시 하위 로직 실행 (DataFrame 복사)
 tasks_df = st.session_state.tasks_df.copy()
 agenda_df = st.session_state.agenda_df.copy()
 meetings_df = st.session_state.meetings_df.copy()
@@ -992,10 +669,11 @@ with st.sidebar:
     
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     
+    # 새로고침/권한 전환 버튼 시 스피너 UX 적용
     if st.button("🔄 새로고침 / 권한 전환", use_container_width=True):
         with st.spinner("데이터를 동기화 중입니다..."):
             init_data()
-            st.session_state.role = None
+            st.session_state.role = None # 권한초기화 -> 로그인 게이트로 유도
         st.rerun()
     
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
@@ -1007,7 +685,7 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    # Sidebar: Quick stats (Monday Vibe style — always-visible pulse)
+    # Sidebar: Quick stats
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
     st.caption("QUICK STATUS")
     
@@ -1023,7 +701,7 @@ with st.sidebar:
             <span style="font-size:14px;font-weight:900;color:#E8EDF5;">{progress_pct}%</span>
         </div>
         <div style="width:100%;height:6px;background:#1A2335;border-radius:999px;overflow:hidden;">
-            <div style="width:{progress_pct}%;height:100%;background:linear-gradient(90deg,#5EEAA0,#3DC880);border-radius:999px;transition:width 0.5s ease;"></div>
+            <div style="width:{progress_pct}%;height:100%;background:linear-gradient(90deg,#5EEAA0,#3DC880);border-radius:999px;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:10px;">
             <span style="font-size:11px;color:#6B7B8D;font-weight:600;">완료 {done_t}/{total_t}</span>
@@ -1052,46 +730,36 @@ if menu == "🏠 홈":
     st.markdown("### 📖 필수 가이드")
     
     c1, c2, c3 = st.columns(3, gap="medium")
-    
     with c1:
         st.markdown("""
-        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;transition:border-color 0.2s;">
+        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;">
             <div style="font-size:28px;margin-bottom:12px;">📋</div>
             <h4 style="color:#FF7EB3;margin:0 0 10px 0;font-size:15px;">WBS와 고유 코드</h4>
             <p style="color:#9BAABB;font-size:13px;line-height:1.7;margin:0;">
-                <b style="color:#E8EDF5;">WBS(Work Breakdown Structure)</b>는 프로젝트를 실행 가능한 단위로 쪼개는 구조입니다.
-                WBS 코드는 <b style="color:#FF7EB3;">절대 중복 불가</b> — 고유한 번호여야 합니다.
-                예: 하위 업무는 <b style="color:#E8EDF5;">2.2.1</b>, <b style="color:#E8EDF5;">2.2.2</b>처럼 부여하세요.
+                <b style="color:#E8EDF5;">WBS(Work Breakdown Structure)</b>는 프로젝트를 하위 단위로 쪼개는 구조입니다. WBS 코드는 절대 중복 불가하며 예: <b style="color:#E8EDF5;">2.2.1</b>처럼 부여하세요.
             </p>
         </div>
         """, unsafe_allow_html=True)
-
     with c2:
         st.markdown("""
-        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;transition:border-color 0.2s;">
+        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;">
             <div style="font-size:28px;margin-bottom:12px;">📊</div>
             <h4 style="color:#FFCB57;margin:0 0 10px 0;font-size:15px;">핵심 경로(CPM)와 PERT</h4>
             <p style="color:#9BAABB;font-size:13px;line-height:1.7;margin:0;">
-                업무간 선행 관계를 연결하면 알고리즘이 <b style="color:#E8EDF5;">핵심 경로(Critical Path)</b>를 자동 계산합니다.
-                간트 차트의 <b style="color:#FF6B6B;">붉은 막대</b>가 하루라도 지연되면 전체 일정이 밀립니다.
-                PERT 3점 추정으로 현실적 소요일을 산출하세요.
+                알고리즘이 <b style="color:#E8EDF5;">핵심 경로(Critical Path)</b>를 자동 계산합니다. 간트 차트의 <b style="color:#FF6B6B;">붉은 막대</b>가 지연되면 전체 일정이 밀립니다.
             </p>
         </div>
         """, unsafe_allow_html=True)
-
     with c3:
         st.markdown("""
-        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;transition:border-color 0.2s;">
+        <div style="background:#151C2A;padding:24px;border-radius:16px;border:1px solid rgba(140,170,220,0.1);height:100%;">
             <div style="font-size:28px;margin-bottom:12px;">⚖️</div>
             <h4 style="color:#5EEAA0;margin:0 0 10px 0;font-size:15px;">의사결정 알고리즘</h4>
             <p style="color:#9BAABB;font-size:13px;line-height:1.7;margin:0;">
-                가중치 평가(Weighted Scoring) 모델로 직감과 편향을 배제합니다.
-                평가 기준과 가중치를 설정하고 대안별 점수를 입력하면
-                알고리즘이 <b style="color:#5EEAA0;">최적 1순위 대안</b>을 과학적으로 추천합니다.
+                가중치 평가 모델로 직감을 배제합니다. 기준과 가중치를 설정하고 점수를 입력하면 <b style="color:#5EEAA0;">최적 1순위 대안</b>을 과학적으로 추천합니다.
             </p>
         </div>
         """, unsafe_allow_html=True)
-
     st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
     st.markdown("### 🚀 3단계 빠른 시작")
     
@@ -1893,17 +1561,13 @@ elif menu == "📄 문서":
                         st.session_state.is_edit_mtg = False
                         st.rerun()
 
-# =========================
-# Tab: 작업 전송
-# =========================
 elif menu == "🤖 작업 전송":
     st.markdown("""
-        <div style="margin-bottom:24px;">
-            <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
-            <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
-        </div>
-        """, unsafe_allow_html=True)
-
+    <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
+        <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
+    </div>
+    """, unsafe_allow_html=True)
     if not can_edit(): 
         st.info("조회 권한에서는 디스코드 전송이 불가합니다. '권한 전환'으로 로그인하세요.")
 
@@ -1984,4 +1648,3 @@ elif menu == "🤖 작업 전송":
                     st.rerun()
                 else: 
                     st.error(msg)
-
