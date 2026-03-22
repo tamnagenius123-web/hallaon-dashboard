@@ -15,7 +15,7 @@ from streamlit_calendar import calendar
 st.set_page_config(page_title="Hallaon Workspace", layout="wide", initial_sidebar_state="expanded")
 
 # 로고 파일 경로 상수
-LOGO_IMAGE_PATH = "image_02c15f0a-577a-462d-8cd3-1ca275ece279.jpg"
+LOGO_IMAGE_PATH = "image_02c15f0a-577a-462d-8cd3-1ca275ece279.png"
 
 # =========================
 # 🛠️ 구글 스프레드시트 DB 연동 로직
