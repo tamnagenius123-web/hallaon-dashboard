@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import gspread
-import base64  # 로고 인코딩을 위해 추가
+import base64
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, date, timedelta
 from html import escape
@@ -36,6 +36,7 @@ WORKSHEET_TASKS = "Tasks"
 WORKSHEET_AGENDA = "Agenda"
 WORKSHEET_MEETINGS = "Meetings"
 WORKSHEET_DECISIONS = "DECISIONS"
+WORKSHEET_USERS = "Users"  # ★ 신규 추가된 유저 관리 시트
 
 def get_sheet():
     client = get_gsheets_client()
@@ -54,7 +55,6 @@ def load_gsheet_to_df(worksheet_name):
         if len(data) <= 1: return pd.DataFrame(columns=data[0] if data else [])
         return pd.DataFrame(data[1:], columns=data[0])
     except Exception as e:
-        st.error(f"'{worksheet_name}' 시트를 불러오지 못했습니다. URL과 시트 탭 이름을 확인하세요.\n오류: {e}")
         return pd.DataFrame()
 
 def save_df_to_gsheet(df, worksheet_name):
@@ -72,260 +72,76 @@ def save_df_to_gsheet(df, worksheet_name):
 # Config & Data Constants
 # =========================
 DISCORD_WEBHOOK_URL = st.secrets.get("DISCORD_WEBHOOK_URL", "")
-EDIT_PASSWORD = st.secrets.get("EDIT_PASSWORD", "")
-VIEW_PASSWORD = st.secrets.get("VIEW_PASSWORD", "")
 
 TEAM_OPTIONS = ["PM", "CD", "FS", "DM", "OPS"]
 TASK_STATUS_OPTIONS = ["시작 전", "대기", "진행 중", "작업 중", "막힘", "완료"]
 AGENDA_STATUS_OPTIONS = ["시작 전", "진행 중", "완료", "보류"]
 
 TEAM_COLORS = {
-    "PM":  "#6C9CFF",   # Calm blue — strategic, overview
-    "CD":  "#FF7EB3",   # Soft rose — creative direction
-    "FS":  "#5EEAA0",   # Mint green — field/execution
-    "DM":  "#B18CFF",   # Lavender — data/digital
-    "OPS": "#FFCB57",   # Warm amber — operations
+    "PM":  "#6C9CFF",   "CD":  "#FF7EB3",   "FS":  "#5EEAA0",
+    "DM":  "#B18CFF",   "OPS": "#FFCB57",
 }
 STATUS_COLORS = {
-    "완료":   "#5EEAA0",
-    "막힘":   "#FF6B6B",
-    "진행 중": "#FFCB57",
-    "작업 중": "#FFB070",
-    "대기":   "#B18CFF",
-    "시작 전": "#8899AA",
-    "보류":   "#6B7B8D",
+    "완료":   "#5EEAA0",  "막힘":   "#FF6B6B",  "진행 중": "#FFCB57",
+    "작업 중": "#FFB070", "대기":   "#B18CFF",  "시작 전": "#8899AA", "보류":   "#6B7B8D",
 }
 
 # =========================
-# 🎨 MASTER CSS — Toss + Monday Vibe + shadcn Dark Design System
+# 🎨 MASTER CSS
 # =========================
 st.markdown("""
 <style>
-/* ========== RESET & GLOBAL ========== */
 #MainMenu {visibility:hidden;} footer {visibility:hidden;} header {visibility:hidden;}
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-    /* Surface elevation (Monday Vibe 6-layer) */
-    --sf-ground: #0B0F14;
-    --sf-base:    #101621;
-    --sf-raised: #151C2A;
-    --sf-overlay: #1A2335;
-    --sf-top:     #1F2A40;
-    --sf-peak:    #26334D;
-
-    /* Border (3-tier opacity ramp) */
-    --bd-subtle:  rgba(140, 170, 220, 0.07);
-    --bd-default: rgba(140, 170, 220, 0.12);
-    --bd-strong:  rgba(140, 170, 220, 0.20);
-    --bd-focus:   rgba(108, 156, 255, 0.5);
-
-    /* Text */
-    --tx-primary:   #E8EDF5;
-    --tx-secondary: #9BAABB;
-    --tx-tertiary:  #6B7B8D;
-    --tx-inverse:   #0B0F14;
-
-    /* Accent */
-    --accent:       #6C9CFF;
-    --accent-soft:  rgba(108, 156, 255, 0.12);
-    --accent-hover: rgba(108, 156, 255, 0.20);
-    --accent-press: rgba(108, 156, 255, 0.28);
-
-    /* Shadows */
-    --sh-sm: 0 2px 6px rgba(0,0,0,0.24);
-    --sh-md: 0 4px 12px rgba(0,0,0,0.28);
-    --sh-lg: 0 8px 28px rgba(0,0,0,0.36);
-
-    /* Radius */
+    --sf-ground: #0B0F14; --sf-base: #101621; --sf-raised: #151C2A; --sf-overlay: #1A2335; --sf-top: #1F2A40;
+    --bd-subtle: rgba(140, 170, 220, 0.07); --bd-default: rgba(140, 170, 220, 0.12); --bd-strong: rgba(140, 170, 220, 0.20);
+    --tx-primary: #E8EDF5; --tx-secondary: #9BAABB; --tx-tertiary: #6B7B8D; --tx-inverse: #0B0F14;
+    --accent: #6C9CFF; --accent-soft: rgba(108, 156, 255, 0.12);
+    --sh-sm: 0 2px 6px rgba(0,0,0,0.24); --sh-md: 0 4px 12px rgba(0,0,0,0.28); --sh-lg: 0 8px 28px rgba(0,0,0,0.36);
     --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-full: 999px;
-
-    /* Spacing */
     --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
-
-    /* Motion */
-    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    --dur-fast: 120ms; --dur-normal: 200ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --dur-fast: 120ms; --dur-normal: 200ms;
 }
 
-/* ========== APP SHELL ========== */
-html, body, .stApp {
-    font-family: 'Inter', sans-serif !important;
-}
-.stApp {
-    background: var(--sf-ground) !important;
-    color: var(--tx-primary) !important;
-    font-weight: 450;
-    line-height: 1.65;
-}
-
+html, body, .stApp { font-family: 'Inter', sans-serif !important; background: var(--sf-ground) !important; color: var(--tx-primary) !important; font-weight: 450; line-height: 1.65; }
 h1, h2, h3 { color: var(--tx-primary) !important; font-weight: 800 !important; letter-spacing: -0.025em; }
-h1 { font-size: 28px !important; }
-
 p, div.stMarkdown, label, span { color: var(--tx-primary) !important; }
 small, [data-testid="stCaptionContainer"] * { color: var(--tx-secondary) !important; font-size: 12px !important; font-weight: 600; text-transform: uppercase; }
 
-hr, .stMarkdown hr { border: none !important; border-top: 1px solid var(--bd-subtle) !important; margin: var(--sp-8) 0 !important; }
+.login-logo-container { display: flex; justify-content: center; margin-bottom: var(--sp-6); }
+.login-logo-img { width: 100px; height: 100px; border-radius: var(--r-xl); object-fit: cover; box-shadow: var(--sh-lg); border: 2px solid var(--bd-strong); }
 
-/* ========== LOGIN LOGIN LOGO (NEW) ========== */
-.login-logo-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: var(--sp-6);
-}
-.login-logo-img {
-    width: 100px;
-    height: 100px;
-    border-radius: var(--r-xl);
-    object-fit: cover;
-    box-shadow: var(--sh-lg);
-    border: 2px solid var(--bd-strong);
-}
-
-/* ========== SIDEBAR (Monday Vibe nav-rail) ========== */
-section[data-testid="stSidebar"] {
-    background: var(--sf-base) !important;
-    border-right: 1px solid var(--bd-subtle) !important;
-    padding: var(--sp-5) var(--sp-4) !important;
-}
+section[data-testid="stSidebar"] { background: var(--sf-base) !important; border-right: 1px solid var(--bd-subtle) !important; padding: var(--sp-5) var(--sp-4) !important; }
 section[data-testid="stSidebar"] * { color: var(--tx-primary) !important; }
+section[data-testid="stSidebar"] [data-baseweb="radio"] label { border-radius: var(--r-md) !important; padding: var(--sp-3) var(--sp-4) !important; transition: all var(--dur-fast) var(--ease-out); }
+section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover { background: var(--accent-soft) !important; color: var(--accent) !important; }
+section[data-testid="stSidebar"] [data-baseweb="radio"] label[data-selected="true"], section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div + label { background: var(--accent-soft) !important; box-shadow: inset 3px 0 0 var(--accent); color: var(--accent) !important; font-weight: 700; }
 
-section[data-testid="stSidebar"] [data-baseweb="radio"] label {
-    border-radius: var(--r-md) !important;
-    padding: var(--sp-3) var(--sp-4) !important;
-    transition: all var(--dur-fast) var(--ease-out);
-}
-section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover {
-    background: var(--accent-soft) !important;
-    color: var(--accent) !important;
-}
-section[data-testid="stSidebar"] [data-baseweb="radio"] label[data-selected="true"],
-section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div + label {
-    background: var(--accent-soft) !important;
-    box-shadow: inset 3px 0 0 var(--accent);
-    color: var(--accent) !important;
-    font-weight: 700;
-}
+button[data-testid="stSidebarCollapsedControl"] { visibility: visible !important; background: var(--accent) !important; border-radius: 0 var(--r-lg) var(--r-lg) 0 !important; box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3) !important; position: fixed !important; top: 12px !important; left: 0 !important; z-index:9999;}
+button[data-testid="stSidebarCollapsedControl"] svg { visibility: visible !important; color: var(--tx-inverse) !important; fill: var(--tx-inverse) !important; }
 
-/* ====== MOBILE SIDEBAR TOGGLE — CRITICAL FIX (Toss mobile UX) ====== */
-button[data-testid="stSidebarCollapsedControl"] {
-    visibility: visible !important;
-    background: var(--accent) !important;
-    border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
-    box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3) !important;
-    position: fixed !important;
-    top: 12px !important;
-    left: 0 !important;
-}
-button[data-testid="stSidebarCollapsedControl"] svg {
-    visibility: visible !important;
-    color: var(--tx-inverse) !important;
-    fill: var(--tx-inverse) !important;
-}
-
-/* ========== METRIC CARDS ========== */
-div[data-testid="metric-container"] {
-    background: var(--sf-raised) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-xl) !important;
-    padding: var(--sp-6) !important;
-    transition: all var(--dur-normal) var(--ease-out);
-}
-div[data-testid="metric-container"]:hover {
-    box-shadow: var(--sh-md) !important;
-    transform: translateY(-2px);
-}
+div[data-testid="metric-container"] { background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-xl) !important; padding: var(--sp-6) !important; transition: all var(--dur-normal) var(--ease-out); }
+div[data-testid="metric-container"]:hover { box-shadow: var(--sh-md) !important; transform: translateY(-2px); }
 div[data-testid="stMetricLabel"] { color: var(--tx-secondary) !important; font-size: 12px !important; font-weight: 700 !important; text-transform: uppercase; }
 div[data-testid="stMetricValue"] { color: var(--tx-primary) !important; font-size: 32px !important; font-weight: 900 !important; }
 
-/* ========== DATA TABLE & EDITOR ========== */
-div[data-testid="stDataFrame"] {
-    background: var(--sf-raised) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-lg) !important;
-    overflow: hidden;
-}
-div[data-testid="stDataFrame"] [role="columnheader"] {
-    background: var(--sf-overlay) !important;
-    color: var(--tx-secondary) !important;
-    font-size: 11px !important;
-    text-transform: uppercase;
-}
+div[data-testid="stDataFrame"] { background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-lg) !important; overflow: hidden; }
+div[data-testid="stDataFrame"] [role="columnheader"] { background: var(--sf-overlay) !important; color: var(--tx-secondary) !important; font-size: 11px !important; text-transform: uppercase; }
+div[data-testid="stDataFrame"] canvas + div input { color: #FFFFFF !important; background: var(--sf-top) !important; border: 2px solid var(--accent) !important; border-radius: var(--r-xs) !important; }
 
-/* FIX: data_editor input text visibility */
-div[data-testid="stDataFrame"] canvas + div input {
-    color: #FFFFFF !important;
-    background: var(--sf-top) !important;
-    border: 2px solid var(--accent) !important;
-    border-radius: var(--r-xs) !important;
-}
+div[data-testid="stExpander"] details { background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-lg) !important; margin-bottom: 8px;}
+div[data-testid="stExpander"] summary { background: var(--sf-overlay) !important; font-size: 14px !important; padding: var(--sp-4) var(--sp-5) !important; }
 
-/* ========== EXPANDER ========== */
-div[data-testid="stExpander"] details {
-    background: var(--sf-raised) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-lg) !important;
-}
-div[data-testid="stExpander"] summary {
-    background: var(--sf-overlay) !important;
-    font-size: 14px !important;
-    padding: var(--sp-4) var(--sp-5) !important;
-}
-
-/* ========== BUTTONS (Toss CTA hierarchy) ========== */
-button[kind="primary"], button[data-testid="stFormSubmitButton"] > button {
-    background: linear-gradient(135deg, #6C9CFF 0%, #5580E0 100%) !important;
-    color: var(--tx-inverse) !important;
-    border-radius: var(--r-md) !important;
-    box-shadow: var(--sh-sm), 0 0 12px rgba(108,156,255,0.15) !important;
-    transition: all var(--dur-fast) var(--ease-out);
-}
+button[kind="primary"], button[data-testid="stFormSubmitButton"] > button { background: linear-gradient(135deg, #6C9CFF 0%, #5580E0 100%) !important; color: var(--tx-inverse) !important; border-radius: var(--r-md) !important; box-shadow: var(--sh-sm), 0 0 12px rgba(108,156,255,0.15) !important; transition: all var(--dur-fast) var(--ease-out); font-weight:700 !important;}
 button[kind="primary"]:hover { box-shadow: var(--sh-md), 0 0 20px rgba(108,156,255,0.3) !important; transform: translateY(-1px); }
+button[kind="secondary"] { background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-md) !important; }
 
-button[kind="secondary"] {
-    background: var(--sf-overlay) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-md) !important;
-}
-
-/* ========== INPUTS ========== */
-input, textarea {
-    background: var(--sf-base) !important;
-    border: 1.5px solid var(--bd-default) !important;
-    border-radius: var(--r-sm) !important;
-}
+input, textarea { background: var(--sf-base) !important; border: 1.5px solid var(--bd-default) !important; border-radius: var(--r-sm) !important; }
 input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft) !important; }
-
-/* ========== TABS ========== */
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: var(--accent) !important; }
-
-/* ========== FORM (shadcn card) ========== */
-[data-testid="stForm"] {
-    background: var(--sf-raised) !important;
-    border: 1px solid var(--bd-default) !important;
-    border-radius: var(--r-xl) !important;
-    padding: var(--sp-6) !important;
-}
-
-/* ========== TOAST ========== */
-div[data-testid="stToast"] { background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-lg) !important; }
-
-/* ========== CUSTOM CLASSES ========== */
-.role-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    border-radius: var(--r-full);
-    font-size: 12px;
-    font-weight: 700;
-    border: 1px solid var(--bd-default);
-    background: var(--sf-overlay);
-    color: var(--accent) !important;
-}
-.folder-btn button:hover { background: var(--accent-soft) !important; }
-.folder-btn button:hover span { color: var(--accent) !important; }
+[data-testid="stForm"] { background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-xl) !important; padding: var(--sp-6) !important; }
+.role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: var(--r-full); font-size: 12px; font-weight: 700; border: 1px solid var(--bd-default); background: var(--sf-overlay); color: var(--accent) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -336,49 +152,33 @@ def safe_date_str(v):
     try: return pd.to_datetime(v).strftime("%Y-%m-%d")
     except Exception: return date.today().strftime("%Y-%m-%d")
 
-def team_badge(team):
-    t = str(team).split(",")[0].strip() if str(team).strip() else "미지정"
-    c = TEAM_COLORS.get(t, "#8899AA")
-    return f"<span style='display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.12);color:{c};font-size:11px;font-weight:700;letter-spacing:0.04em;border:1px solid rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.25);'>{escape(t)}</span>"
-
 def status_badge(status):
     s = str(status).strip()
     c = STATUS_COLORS.get(s, "#8899AA")
     return f"<span style='display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.12);color:{c};font-size:11px;font-weight:700;letter-spacing:0.04em;border:1px solid rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.25);'>{escape(s)}</span>"
 
-# 이미지 파일을 Base64로 변환하는 함수
 def get_base64_of_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 # =========================
-# CPM 및 간트 차트 (PERT 계산 적용)
+# CPM 및 간트 차트 
 # =========================
 def calculate_cpm(df):
-    """정석 Forward-pass + backward-pass 기반 Critical Path calculation."""
     df = df.copy()
     df["is_critical"] = False
-    if "WBS_코드" not in df.columns or "선행_업무" not in df.columns or df.empty:
-        return df
+    if "WBS_코드" not in df.columns or "선행_업무" not in df.columns or df.empty: return df
 
-    # Parse dates
     df["_start"] = pd.to_datetime(df["시작일"], errors="coerce")
     df["_end"] = pd.to_datetime(df["종료일"], errors="coerce")
     df = df.dropna(subset=["_start", "_end"])
     if df.empty: return df
     
-    # Build WBS → index lookup
-    wbs_map = {}
-    for idx, row in df.iterrows():
-        wbs = str(row["WBS_코드"]).strip()
-        if wbs: wbs_map[wbs] = idx
-    
-    # Forward pass: Earliest Start (ES) / Earliest Finish (EF)
+    wbs_map = {str(row["WBS_코드"]).strip(): idx for idx, row in df.iterrows() if str(row["WBS_코드"]).strip()}
     df["ES"] = df["_start"]
     df["EF"] = df["_end"]
     
-    # 간위 구현: 순서대로 루프 (실제로는 위상 정렬 필요)
     for idx, row in df.iterrows():
         preds = str(row.get("선행_업무", "")).strip()
         if preds:
@@ -387,52 +187,38 @@ def calculate_cpm(df):
             for p in pred_list:
                 if p in wbs_map:
                     pred_ef = df.at[wbs_map[p], "EF"]
-                    if max_ef is None or pred_ef > max_ef:
-                        max_ef = pred_ef
+                    if max_ef is None or pred_ef > max_ef: max_ef = pred_ef
             if max_ef is not None:
-                # EF = ES + Duration (TE 기반). 여기서는 입력된 날짜를 우선시하되 선행지연 반영
                 df.at[idx, "ES"] = max(df.at[idx, "ES"], max_ef + timedelta(days=1))
     
-    # Backward pass: Latest Finish (LF) / Latest Start (LS)
     project_end = df["EF"].max()
     df["LF"] = project_end
     df["LS"] = project_end
     
-    # Iterate in reverse to find LF
     for idx in reversed(df.index.tolist()):
         wbs = str(df.at[idx, "WBS_코드"]).strip()
-        # Find tasks that depend on this one (successors)
         for idx2, row2 in df.iterrows():
             preds = str(row2.get("선행_업무", "")).strip()
-            if preds:
-                pred_list = [p.strip() for p in preds.split(",") if p.strip()]
-                if wbs in pred_list:
-                    # LS of successor exists if Backward pass iteration is correct
-                    succ_ls = df.at[idx2, "LS"] if "LS" in df.columns else project_end
-                    df.at[idx, "LF"] = min(df.at[idx, "LF"], succ_ls - timedelta(days=1))
+            if preds and wbs in [p.strip() for p in preds.split(",") if p.strip()]:
+                succ_ls = df.at[idx2, "LS"] if "LS" in df.columns else project_end
+                df.at[idx, "LF"] = min(df.at[idx, "LF"], succ_ls - timedelta(days=1))
         
         duration = (df.at[idx, "EF"] - df.at[idx, "ES"]).days
         df.at[idx, "LS"] = df.at[idx, "LF"] - timedelta(days=duration)
     
-    # Float = LS - ES. If float <= 0, it's critical
     df["_float"] = (df["LS"] - df["ES"]).dt.days
     df["is_critical"] = df["_float"] <= 0
-    
-    # Cleanup temp columns
     df.drop(columns=["_start", "_end", "ES", "EF", "LS", "LF", "_float"], inplace=True, errors='ignore')
-    
     return df
 
 def render_gantt(df):
-    if df.empty:
-        return "<div style='padding:32px;color:#9BAABB;font-size:14px;text-align:center;'>표시할 업무가 없습니다.</div>"
+    if df.empty: return "<div style='padding:32px;color:#9BAABB;font-size:14px;text-align:center;'>표시할 업무가 없습니다.</div>"
     
     g = calculate_cpm(df.copy())
     g["시작일_dt"] = pd.to_datetime(g["시작일"], errors="coerce")
     g["종료일_dt"] = pd.to_datetime(g["종료일"], errors="coerce")
     g = g.dropna(subset=["시작일_dt","종료일_dt"])
-    if g.empty:
-        return "<div style='padding:32px;color:#9BAABB;font-size:14px;text-align:center;'>날짜 데이터가 유효하지 않습니다.</div>"
+    if g.empty: return "<div style='padding:32px;color:#9BAABB;font-size:14px;text-align:center;'>날짜 데이터가 유효하지 않습니다.</div>"
 
     min_d = g["시작일_dt"].min().date()
     max_d = g["종료일_dt"].max().date()
@@ -443,55 +229,26 @@ def render_gantt(df):
     tl_end = tl_start + timedelta(days=days_total)
     step = 1 if weeks <= 12 else 2 if weeks <= 24 else 4
     today = date.today()
-    
-    # Determine today's position
     today_off = (today - tl_start).days
     today_pct = (today_off / days_total) * 100 if 0 <= today_off <= days_total else -100
 
-    h = "<style>"
-    h += """
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    .gw{font-family:'Inter',sans-serif;background:#0B0F14;border:1px solid rgba(140,170,220,0.12);border-radius:20px;overflow:auto;}
-    .gh{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#101621;border-bottom:1px solid rgba(140,170,220,0.07);gap:8px;}
-    .chip-row{display:flex;flex-wrap:wrap;gap:6px;}
-    .chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:10px;font-weight:700;}
-    .dot{width:7px;height:7px;border-radius:50%;}
-    .gt{width:100%;min-width:1200px;border-collapse:collapse;}
-    .gt th,.gt td{border-right:1px solid rgba(140,170,220,0.05);border-bottom:1px solid rgba(140,170,220,0.05);color:#E8EDF5;padding:10px;}
-    .gt th{background:#151C2A;font-size:10px;text-transform:uppercase;color:#6B7B8D;position:sticky;top:0;z-index:2;}
-    .gt tr:hover{background:rgba(108,156,255,0.04);}
-    .today-line{position:absolute;top:0;bottom:0;width:2px;background:rgba(108,156,255,0.5);z-index:1;}
-    .today-line::before{content:'Today';position:absolute;top:-18px;left:-14px;font-size:8px;color:#6C9CFF;font-weight:700;}
-    .barw{position:relative;height:44px;display:flex;align-items:center;}
-    .bar{position:absolute;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;color:#0B0F14;text-overflow:ellipsis;transition:all 200ms;}
-    .bar:hover{transform:scaleY(1.15);box-shadow:0 4px 12px rgba(0,0,0,0.35);}
-    .bar.critical{background:linear-gradient(135deg,#FF6B6B 0%,#E04545 100%) !important;color:#fff;box-shadow:0 0 10px rgba(255,107,107,0.5);border:1px solid #FF9B9B;}
-    """
-    h += "</style>"
-
+    h = "<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');.gw{font-family:'Inter',sans-serif;background:#0B0F14;border:1px solid rgba(140,170,220,0.12);border-radius:20px;overflow:auto;}.gh{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#101621;border-bottom:1px solid rgba(140,170,220,0.07);gap:8px;}.chip-row{display:flex;flex-wrap:wrap;gap:6px;}.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:10px;font-weight:700;}.dot{width:7px;height:7px;border-radius:50%;}.gt{width:100%;min-width:1200px;border-collapse:collapse;}.gt th,.gt td{border-right:1px solid rgba(140,170,220,0.05);border-bottom:1px solid rgba(140,170,220,0.05);color:#E8EDF5;padding:10px;}.gt th{background:#151C2A;font-size:10px;text-transform:uppercase;color:#6B7B8D;position:sticky;top:0;z-index:2;}.gt tr:hover{background:rgba(108,156,255,0.04);}.today-line{position:absolute;top:0;bottom:0;width:2px;background:rgba(108,156,255,0.5);z-index:1;}.today-line::before{content:'Today';position:absolute;top:-18px;left:-14px;font-size:8px;color:#6C9CFF;font-weight:700;}.barw{position:relative;height:44px;display:flex;align-items:center;}.bar{position:absolute;height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;color:#0B0F14;text-overflow:ellipsis;transition:all 200ms;}.bar:hover{transform:scaleY(1.15);box-shadow:0 4px 12px rgba(0,0,0,0.35);}.bar.critical{background:linear-gradient(135deg,#FF6B6B 0%,#E04545 100%) !important;color:#fff;box-shadow:0 0 10px rgba(255,107,107,0.5);border:1px solid #FF9B9B;}</style>"
     h += "<div class='gw'><div class='gh'><div class='chip-row'>"
-    for t, c in TEAM_COLORS.items():
-        h += f"<span class='chip'><span class='dot' style='background:{c}'></span>{t}</span>"
-    h += f"<span class='chip' style='border-color:rgba(255,107,107,0.3);color:#FF9B9B;'><span class='dot' style='background:#FF6B6B'></span>Critical</span>"
-    h += "</div><div style='color:#6B7B8D;font-size:11px;font-weight:800;text-transform:uppercase;'>PERT · CPM Gantt</div></div>"
-    
-    h += "<table class='gt'><thead><tr>"
-    h += "<th style='width:55px;'>WBS</th><th style='width:180px;'>업무</th><th style='width:70px;'>선행</th><th style='width:55px;'>TE</th><th style='width:90px;'>상태</th>"
+    for t, c in TEAM_COLORS.items(): h += f"<span class='chip'><span class='dot' style='background:{c}'></span>{t}</span>"
+    h += f"<span class='chip' style='border-color:rgba(255,107,107,0.3);color:#FF9B9B;'><span class='dot' style='background:#FF6B6B'></span>Critical</span></div><div style='color:#6B7B8D;font-size:11px;font-weight:800;text-transform:uppercase;'>PERT · CPM Gantt</div></div>"
+    h += "<table class='gt'><thead><tr><th style='width:55px;'>WBS</th><th style='width:180px;'>업무</th><th style='width:70px;'>선행</th><th style='width:55px;'>TE</th><th style='width:90px;'>상태</th>"
     for i in range(weeks):
         ws = tl_start + timedelta(days=i*7)
-        txt = f"W{i+1} ({ws.month}/{ws.day})" if i % step == 0 else ""
-        h += f"<th class='wkh'>{txt}</th>"
+        h += f"<th class='wkh'>{f'W{i+1} ({ws.month}/{ws.day})' if i % step == 0 else ''}</th>"
     h += "</tr></thead><tbody>"
 
     for _, r in g.iterrows():
         is_crit = r.get("is_critical", False)
         c = TEAM_COLORS.get(str(r["팀"]).split(",")[0].strip(), "#8899AA")
-        s = r["시작일_dt"].date()
-        e = r["종료일_dt"].date()
+        s = r["시작일_dt"].date(); e = r["종료일_dt"].date()
         off = max((s - tl_start).days, 0)
         dur = max(((min(e, tl_end) - max(s, tl_start)).days + 1), 1)
-        left = (off / days_total) * 100
-        width = (dur / days_total) * 100
+        left = (off / days_total) * 100; width = (dur / days_total) * 100
         today_html = f"<div class='today-line' style='left:{today_pct}%'></div>" if 0 <= today_pct <= 100 else ""
         crit_class = " critical" if is_crit else ""
 
@@ -501,25 +258,28 @@ def render_gantt(df):
         h += f"<td style='color:#9BAABB;'>{escape(str(r.get('선행_업무','')))}</td>"
         h += f"<td>{escape(str(r.get('기대_시간(TE)','')))}</td>"
         h += f"<td>{status_badge(r['상태'])}</td>"
-        h += f"<td colspan='{weeks}' class='tl'>{today_html}<div class='barw'><div class='bar{crit_class}' style='left:{left}%;width:{width}%;background:linear-gradient(135deg,{c} 0%,{c}cc 100%);'>{escape(str(r['업무명']))}</div></div></td>"
-        h += "</tr>"
-
+        h += f"<td colspan='{weeks}' class='tl'>{today_html}<div class='barw'><div class='bar{crit_class}' style='left:{left}%;width:{width}%;background:linear-gradient(135deg,{c} 0%,{c}cc 100%);'>{escape(str(r['업무명']))}</div></div></td></tr>"
     h += "</tbody></table></div>"
     return h
 
 # =========================
-# DB 정규화 및 데이터 로드
+# DB 정규화 
 # =========================
+def normalize_users_df(df):
+    d = df.copy() if df is not None and not df.empty else pd.DataFrame(columns=["이름", "비밀번호", "권한"])
+    req = ["이름", "비밀번호", "권한"]
+    for c in req:
+        if c not in d.columns: d[c] = ""
+    return d
+
 def normalize_tasks_df(df):
     d = df.copy() if df is not None and not df.empty else pd.DataFrame()
-    req = ["id", "업무명", "담당자", "팀", "상태", "시작일", "종료일", "sent", 
-           "WBS_코드", "선행_업무", "낙관적_시간(O)", "가능성_높은_시간(M)", "비관적_시간(P)", "기대_시간(TE)"]
+    req = ["id", "업무명", "담당자", "팀", "상태", "시작일", "종료일", "sent", "WBS_코드", "선행_업무", "낙관적_시간(O)", "가능성_높은_시간(M)", "비관적_시간(P)", "기대_시간(TE)"]
     for c in req:
         if c not in d.columns: d[c] = ""
     if d.empty: return d[req]
     d["id"] = d["id"].apply(lambda x: str(uuid.uuid4()) if not x or x == "" else x)
-    d["시작일"] = d["시작일"].apply(safe_date_str)
-    d["종료일"] = d["종료일"].apply(safe_date_str)
+    d["시작일"] = d["시작일"].apply(safe_date_str); d["종료일"] = d["종료일"].apply(safe_date_str)
     return d[req].fillna("")
 
 def normalize_agenda_df(df):
@@ -558,37 +318,22 @@ def init_data():
     st.session_state.decisions_df = normalize_decisions_df(load_gsheet_to_df(WORKSHEET_DECISIONS))
 
 # =========================
-# 🔐 AUTH GATE (Updated with Logo & Aesthetics)
+# 🔐 AUTH GATE (이름/PW 기반 로그인)
 # =========================
 def auth_gate():
-    # 0. 비밀번호 미설정 시 자동 통과
-    if EDIT_PASSWORD == "" and VIEW_PASSWORD == "":
-        st.session_state.role = "edit"
-        return
-
-    # 1. 이미 로그인 정보가 세션에 있는 경우 통과
     if st.session_state.get("role") is not None:
         return
 
-    # 2. 로고 Base64 인코딩 시도
+    # 로고 Base64 인코딩
     logo_b64 = ""
     try:
         if os.path.exists(LOGO_IMAGE_PATH):
             logo_b64 = get_base64_of_bin_file(LOGO_IMAGE_PATH)
-        else:
-            # 로고 파일이 없으면 에러 표시는 하지 않고 로고만 건너뜀 (UX 배려)
-            pass
-    except Exception as e:
-        # 인코딩 실패 시 에러 로깅 (화면에는 표시 안 함)
-        print(f"Logo encoding error: {e}")
+    except Exception:
         pass
 
-    # 3. 로그인 화면 HTML (Toss-style 중앙 정렬 카드)
-    logo_html = f"""
-    <div class="login-logo-container">
-        <img src="data:image/jpeg;base64,{logo_b64}" class="login-logo-img" alt="Hallaon Logo"/>
-    </div>
-    """ if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
+    # 로그인 화면 HTML 
+    logo_html = f'<div class="login-logo-container"><img src="data:image/jpeg;base64,{logo_b64}" class="login-logo-img" alt="Logo"/></div>' if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
 
     st.markdown(f"""
     <div style="display:flex;justify-content:center;align-items:center;min-height:70vh;">
@@ -600,53 +345,56 @@ def auth_gate():
     </div>
     """, unsafe_allow_html=True)
     
-    # 4. 로그인 폼 렌더링
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         with st.form("login_form"):
-            role_choice = st.radio("권한", ["조회", "편집"], horizontal=True, label_visibility="collapsed")
-            pw = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요", label_visibility="collapsed")
-            
-            # CSS가 폼 내부 버튼에도 적용되도록 'USE_CONTAINER_WIDTH' 설정
+            st.markdown("<div style='font-size:13px; font-weight:700; color:#9BAABB; margin-bottom:12px;'>팀 계정으로 로그인하세요</div>", unsafe_allow_html=True)
+            user_id = st.text_input("이름 (ID)", placeholder="자신의 이름을 입력하세요")
+            user_pw = st.text_input("비밀번호", type="password", placeholder="비밀번호 입력")
             submit = st.form_submit_button("로그인", type="primary", use_container_width=True)
             
             if submit:
-                # 로그인 로딩 스피너 (페이지 열 때 스피너와 동일한 느낌)
-                with st.spinner("권한을 확인하고 있습니다..."):
-                    if role_choice == "편집" and pw == EDIT_PASSWORD:
-                        st.session_state.role = "edit"
-                        st.toast("✅ 편집 권한으로 로그인했습니다.", icon="✏️")
-                        st.rerun()
-                    elif role_choice == "조회" and pw == VIEW_PASSWORD:
-                        st.session_state.role = "view"
-                        st.toast("✅ 조회 권한으로 로그인했습니다.", icon="👁️")
-                        st.rerun()
-                    else:
-                        st.error("비밀번호가 올바르지 않습니다.")
-    
-    # 로그인 안 되면 여기서 멈춤
+                if not user_id or not user_pw:
+                    st.warning("이름과 비밀번호를 모두 입력해주세요.")
+                else:
+                    with st.spinner("정보를 확인하는 중..."):
+                        users_df = st.session_state.users_df
+                        user_row = users_df[users_df["이름"] == user_id]
+                        
+                        if user_row.empty:
+                            st.error("등록되지 않은 이름입니다. (Users 시트를 확인하세요)")
+                        else:
+                            real_pw = str(user_row.iloc[0]["비밀번호"])
+                            real_role = str(user_row.iloc[0]["권한"])
+                            
+                            if user_pw == real_pw:
+                                st.session_state.role = real_role
+                                st.session_state.username = user_id
+                                st.toast(f"환영합니다, {user_id}님!", icon="👋")
+                                st.rerun()
+                            else:
+                                st.error("비밀번호가 일치하지 않습니다.")
     st.stop()
 
-# =========================
-# can_edit 권한 유틸
-# =========================
 def can_edit():
     return st.session_state.get("role") == "edit"
 
 # =========================
-# MAIN APP 실행 구조
+# MAIN APP 실행 구조 (최적화)
 # =========================
 
-# 1. 데이터 세션 초기화 및 최초 앱 로딩 스피너
-if "tasks_df" not in st.session_state:
-    # 처음 페이지 열 때 뜨는 로딩 스피너
-    with st.spinner("🏛️ 한라온 워크스페이스를 불러오고 있습니다..."):
-        init_data()
+# 1. 로그인 폼을 띄우기 위해 가벼운 Users 시트만 먼저 로드!
+if "users_df" not in st.session_state:
+    st.session_state.users_df = normalize_users_df(load_gsheet_to_df(WORKSHEET_USERS))
 
-# 2. 로그인 게이트 실행 (여기서 로고와 로그인 폼 표출)
+# 2. 로그인 게이트 실행 (여기서 통과하지 못하면 밑으로 안 넘어감)
 auth_gate()
 
-# 3. 로그인 성공 시 하위 로직 실행 (DataFrame 복사)
+# 3. 로그인 성공 시 무거운 업무/회의록 데이터 로드 (최초 1회만 스피너)
+if "tasks_df" not in st.session_state:
+    with st.spinner("🏛️ 한라온 데이터를 불러오고 있습니다..."):
+        init_data()
+
 tasks_df = st.session_state.tasks_df.copy()
 agenda_df = st.session_state.agenda_df.copy()
 meetings_df = st.session_state.meetings_df.copy()
@@ -665,15 +413,15 @@ with st.sidebar:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown(f"<span class='role-badge'>{'✏️ 편집' if can_edit() else '👁️ 조회'}</span>", unsafe_allow_html=True)
     
+    st.markdown(f"<span class='role-badge'>👤 {st.session_state.username} ({'편집' if can_edit() else '조회'})</span>", unsafe_allow_html=True)
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     
-    # 새로고침/권한 전환 버튼 시 스피너 UX 적용
-    if st.button("🔄 새로고침 / 권한 전환", use_container_width=True):
-        with st.spinner("데이터를 동기화 중입니다..."):
+    if st.button("🔄 새로고침 / 로그아웃", use_container_width=True):
+        with st.spinner("로그아웃 처리 중..."):
             init_data()
-            st.session_state.role = None # 권한초기화 -> 로그인 게이트로 유도
+            st.session_state.role = None
+            st.session_state.username = None
         st.rerun()
     
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
@@ -685,30 +433,25 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    # Sidebar: Quick stats
+    # === 🔐 비밀번호 변경 기능 추가 ===
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
-    st.caption("QUICK STATUS")
-    
-    total_t = len(tasks_df)
-    done_t = len(tasks_df[tasks_df["상태"].str.contains("완료", na=False)]) if total_t > 0 else 0
-    blocked_t = len(tasks_df[tasks_df["상태"].str.contains("막힘", na=False)]) if total_t > 0 else 0
-    progress_pct = int((done_t / total_t) * 100) if total_t > 0 else 0
-    
-    st.markdown(f"""
-    <div style="background:#151C2A;border-radius:12px;padding:14px 16px;border:1px solid rgba(140,170,220,0.07);margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-size:12px;font-weight:700;color:#9BAABB;">진행률</span>
-            <span style="font-size:14px;font-weight:900;color:#E8EDF5;">{progress_pct}%</span>
-        </div>
-        <div style="width:100%;height:6px;background:#1A2335;border-radius:999px;overflow:hidden;">
-            <div style="width:{progress_pct}%;height:100%;background:linear-gradient(90deg,#5EEAA0,#3DC880);border-radius:999px;"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:10px;">
-            <span style="font-size:11px;color:#6B7B8D;font-weight:600;">완료 {done_t}/{total_t}</span>
-            <span style="font-size:11px;color:{'#FF6B6B' if blocked_t > 0 else '#6B7B8D'};font-weight:700;">{'🚨 막힘 ' + str(blocked_t) if blocked_t > 0 else '✅ 이상 없음'}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.caption("ACCOUNT SETTINGS")
+    with st.expander("🔑 비밀번호 변경", expanded=False):
+        with st.form("pw_change_form"):
+            new_pw = st.text_input("새 비밀번호", type="password")
+            new_pw_conf = st.text_input("비밀번호 확인", type="password")
+            if st.form_submit_button("변경하기", type="primary", use_container_width=True):
+                if not new_pw or not new_pw_conf:
+                    st.warning("비밀번호를 입력해주세요.")
+                elif new_pw != new_pw_conf:
+                    st.error("두 비밀번호가 다릅니다.")
+                else:
+                    users_df = st.session_state.users_df
+                    idx = users_df.index[users_df["이름"] == st.session_state.username].tolist()[0]
+                    users_df.at[idx, "비밀번호"] = new_pw
+                    st.session_state.users_df = users_df
+                    save_df_to_gsheet(users_df, WORKSHEET_USERS)
+                    st.success("✅ 비밀번호가 변경되었습니다.")
 
 # =========================
 # Tab: 홈
@@ -760,16 +503,6 @@ if menu == "🏠 홈":
             </p>
         </div>
         """, unsafe_allow_html=True)
-    st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
-    st.markdown("### 🚀 3단계 빠른 시작")
-    
-    col_s1, col_s2, col_s3 = st.columns(3)
-    with col_s1:
-        st.info("**STEP 1. 업무 분할**\n\n`📋 업무 및 WBS` 메뉴에서 프로젝트를 WBS 코드로 나누고, 선행 업무와 PERT 예상 시간을 등록하세요.")
-    with col_s2:
-        st.warning("**STEP 2. 핵심 경로 파악**\n\n`📊 간트 차트` 메뉴에서 붉은색 핵심 경로(Critical Path) 업무를 확인하고 관리하세요.")
-    with col_s3:
-        st.success("**STEP 3. 알고리즘 의사결정**\n\n`⚖️ 의사결정` 탭의 가중치 모델을 활용해 객관적으로 결정하세요.")
 
 # =========================
 # Tab: 업무 및 WBS
@@ -782,7 +515,7 @@ elif menu == "📋 업무 및 WBS":
     </div>
     """, unsafe_allow_html=True)
     
-    if not can_edit(): st.info("조회 권한입니다. 편집은 '권한 전환'으로 로그인하세요.")
+    if not can_edit(): st.info("조회 권한입니다.")
 
     with st.expander("➕ 새 업무 추가", expanded=False):
         with st.form("add_wbs_task_form", clear_on_submit=True):
@@ -804,7 +537,6 @@ elif menu == "📋 업무 및 WBS":
             add_btn = st.form_submit_button("➕ 업무 추가", type="primary", disabled=not can_edit())
 
         if add_btn and 업무명:
-            # Validate WBS code uniqueness
             existing_wbs = tasks_df["WBS_코드"].astype(str).str.strip().tolist()
             if WBS_코드.strip() and WBS_코드.strip() in existing_wbs:
                 st.error(f"WBS 코드 '{WBS_코드}'가 이미 존재합니다. 고유한 코드를 입력하세요.")
@@ -813,7 +545,6 @@ elif menu == "📋 업무 및 WBS":
                     TE = round((O_time + 4 * M_time + P_time) / 6, 1) if (O_time or M_time or P_time) else 0
                     start_d = date.today()
                     
-                    # If predecessor exists, start after predecessor's end date
                     if 선행_업무.strip():
                         pred_rows = tasks_df[tasks_df["WBS_코드"].astype(str).str.strip() == 선행_업무.strip()]
                         if not pred_rows.empty:
@@ -837,7 +568,6 @@ elif menu == "📋 업무 및 WBS":
                 st.toast(f"'{업무명}' 업무가 추가되었습니다!", icon="✅")
                 st.rerun()
 
-    # Summary stats (Monday Vibe top bar)
     todo_df = tasks_df[~tasks_df["상태"].str.contains("완료", na=False)].copy()
     done_df = tasks_df[tasks_df["상태"].str.contains("완료", na=False)].copy()
     blocked_df = tasks_df[tasks_df["상태"].str.contains("막힘", na=False)].copy()
@@ -881,7 +611,6 @@ elif menu == "📋 업무 및 WBS":
     c1, c2 = st.columns(2)
     with c1:
         if st.button("💾 수정사항 저장", type="primary", disabled=not can_edit(), use_container_width=True):
-            # Validate WBS uniqueness on save
             wbs_list = edited["WBS_코드"].astype(str).str.strip().tolist()
             wbs_nonempty = [w for w in wbs_list if w and w != ""]
             if len(wbs_nonempty) != len(set(wbs_nonempty)):
@@ -920,7 +649,6 @@ elif menu == "📊 간트 차트":
     </div>
     """, unsafe_allow_html=True)
     
-    # Filter options
     fc1, fc2, fc3 = st.columns([1, 1, 2])
     with fc1:
         hide_done = st.toggle("완료 업무 숨기기", value=True)
@@ -933,7 +661,6 @@ elif menu == "📊 간트 차트":
     if team_filter_gantt != "전체":
         gdf = gdf[gdf["팀"].str.contains(team_filter_gantt, na=False)].copy()
 
-    # Sort by WBS code for logical ordering
     gdf["_sort"] = gdf["WBS_코드"].astype(str).str.strip()
     gdf = gdf.sort_values("_sort").drop(columns=["_sort"])
 
@@ -957,34 +684,23 @@ elif menu == "📅 캘린더":
             color = TEAM_COLORS.get(str(r["팀"]).split(",")[0].strip(), "#8899AA")
             end_date = (pd.to_datetime(r["종료일"]) + timedelta(days=1)).strftime("%Y-%m-%d")
             calendar_events.append({
-                "title": f"📋 {r['업무명']} ({r['담당자']})",
-                "start": r["시작일"],
-                "end": end_date,
+                "title": f"📋 {r['업무명']} ({r['담당자']})", "start": r["시작일"], "end": end_date,
                 "backgroundColor": f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)}, 0.15)",
-                "borderColor": color,
-                "textColor": color
+                "borderColor": color, "textColor": color
             })
             
     for _, r in meetings_df.iterrows():
         if r["회의일자"]:
             calendar_events.append({
-                "title": f"📄 {r['제목']}",
-                "start": r["회의일자"],
-                "backgroundColor": "rgba(94, 234, 160, 0.15)",
-                "borderColor": "#5EEAA0",
-                "textColor": "#5EEAA0",
-                "allDay": True
+                "title": f"📄 {r['제목']}", "start": r["회의일자"],
+                "backgroundColor": "rgba(94, 234, 160, 0.15)", "borderColor": "#5EEAA0", "textColor": "#5EEAA0", "allDay": True
             })
 
     for _, r in agenda_df.iterrows():
         if r["입안일"]:
             calendar_events.append({
-                "title": f"🗂️ {r['안건명']}",
-                "start": r["입안일"],
-                "backgroundColor": "rgba(255, 126, 179, 0.15)",
-                "borderColor": "#FF7EB3",
-                "textColor": "#FF7EB3",
-                "allDay": True
+                "title": f"🗂️ {r['안건명']}", "start": r["입안일"],
+                "backgroundColor": "rgba(255, 126, 179, 0.15)", "borderColor": "#FF7EB3", "textColor": "#FF7EB3", "allDay": True
             })
 
     calendar_options = {
@@ -1006,7 +722,6 @@ elif menu == "📅 캘린더":
         .fc-event { border-radius: 5px; padding: 2px 5px; font-size: 11px; font-weight: 600; cursor: pointer; border-width: 1px !important; }
         .fc-daygrid-day-number { color: #9BAABB !important; font-weight: 600; font-size: 13px; }
         .fc-col-header-cell-cushion { color: #6B7B8D !important; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .fc-more-link { color: #6C9CFF !important; font-weight: 700; font-size: 11px; }
     """
     
     st.markdown("""
@@ -1014,9 +729,7 @@ elif menu == "📅 캘린더":
                 border: 1px solid rgba(140,170,220,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.28);
                 box-sizing: border-box; width: 100%; overflow: hidden;'>
     """, unsafe_allow_html=True)
-    
     calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key="hallaon_calendar")
-    
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================
@@ -1031,7 +744,7 @@ elif menu == "📈 대시보드":
     """, unsafe_allow_html=True)
     
     if tasks_df.empty:
-        st.info("업무 데이터가 없습니다. '📋 업무 및 WBS' 탭에서 업무를 등록하세요.")
+        st.info("업무 데이터가 없습니다.")
     else:
         unique_df = tasks_df.drop_duplicates(subset=['업무명'])
 
@@ -1044,19 +757,12 @@ elif menu == "📈 대시보드":
         st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
         chart_col1, chart_col2 = st.columns(2)
-        
         with chart_col1:
             st.markdown("##### 상태별 분포")
             s = unique_df["상태"].value_counts().reset_index()
             s.columns = ["상태","개수"]
             fig1 = px.pie(s, names="상태", values="개수", hole=0.6, color="상태", color_discrete_map=STATUS_COLORS)
-            fig1.update_layout(
-                template="plotly_dark", height=380, showlegend=True,
-                legend=dict(font=dict(size=12, color="#E8EDF5", family="Inter"), bgcolor="rgba(0,0,0,0)", orientation="h", yanchor="bottom", y=-0.15),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                margin=dict(t=20, b=40, l=20, r=20), font=dict(family="Inter, system-ui, sans-serif")
-            )
-            fig1.update_traces(textfont_size=12, textfont_color="#E8EDF5", textinfo='percent+label')
+            fig1.update_layout(template="plotly_dark", height=380, showlegend=True, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(t=20, b=40, l=20, r=20))
             st.plotly_chart(fig1, use_container_width=True)
 
         with chart_col2:
@@ -1064,71 +770,8 @@ elif menu == "📈 대시보드":
             a = unique_df["담당자"].value_counts().reset_index()
             a.columns = ["담당자","개수"]
             fig2 = px.bar(a, x="담당자", y="개수", text_auto=True, color_discrete_sequence=["#6C9CFF"])
-            fig2.update_layout(
-                template="plotly_dark", height=380, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                margin=dict(t=20, b=40, l=40, r=20), font=dict(family="Inter, system-ui, sans-serif", color="#E8EDF5"),
-                xaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""), yaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                bargap=0.35,
-            )
-            fig2.update_traces(marker_line_width=0, marker=dict(cornerradius=8), textfont=dict(color="#E8EDF5", size=13, family="Inter"))
+            fig2.update_layout(template="plotly_dark", height=380, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(t=20, b=40, l=40, r=20), bargap=0.35)
             st.plotly_chart(fig2, use_container_width=True)
-
-        # Team distribution (additional insight)
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-        
-        tc1, tc2 = st.columns(2)
-        with tc1:
-            st.markdown("##### 팀별 업무 분배")
-            team_data = []
-            for _, row in unique_df.iterrows():
-                teams = str(row["팀"]).split(",")
-                for t in teams:
-                    t = t.strip()
-                    if t: team_data.append({"팀": t, "상태": row["상태"]})
-            if team_data:
-                tdf = pd.DataFrame(team_data)
-                tc = tdf["팀"].value_counts().reset_index()
-                tc.columns = ["팀", "개수"]
-                team_color_list = [TEAM_COLORS.get(t, "#8899AA") for t in tc["팀"]]
-                fig3 = px.bar(tc, x="팀", y="개수", text_auto=True, color="팀", 
-                              color_discrete_map=TEAM_COLORS)
-                fig3.update_layout(
-                    template="plotly_dark", height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    margin=dict(t=20, b=40, l=40, r=20), font=dict(family="Inter", color="#E8EDF5"),
-                    xaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                    yaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                    showlegend=False, bargap=0.35,
-                )
-                fig3.update_traces(marker_line_width=0, marker=dict(cornerradius=8), textfont=dict(color="#E8EDF5", size=13, family="Inter"))
-                st.plotly_chart(fig3, use_container_width=True)
-        
-        with tc2:
-            st.markdown("##### 일정 현황")
-            # Overdue / On-track / Upcoming
-            today_dt = pd.Timestamp(date.today())
-            unique_df_copy = unique_df.copy()
-            unique_df_copy["종료일_dt"] = pd.to_datetime(unique_df_copy["종료일"], errors="coerce")
-            active = unique_df_copy[~unique_df_copy["상태"].str.contains("완료", na=False)]
-            
-            overdue = len(active[active["종료일_dt"] < today_dt])
-            on_track = len(active[(active["종료일_dt"] >= today_dt) & (active["종료일_dt"] <= today_dt + timedelta(days=7))])
-            upcoming = len(active[active["종료일_dt"] > today_dt + timedelta(days=7)])
-            
-            timeline_data = pd.DataFrame({
-                "구분": ["기한 초과", "이번 주 마감", "여유 있음"],
-                "개수": [overdue, on_track, upcoming]
-            })
-            fig4 = px.bar(timeline_data, x="구분", y="개수", text_auto=True, 
-                         color="구분", color_discrete_map={"기한 초과": "#FF6B6B", "이번 주 마감": "#FFCB57", "여유 있음": "#5EEAA0"})
-            fig4.update_layout(
-                template="plotly_dark", height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                margin=dict(t=20, b=40, l=40, r=20), font=dict(family="Inter", color="#E8EDF5"),
-                xaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                yaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                showlegend=False, bargap=0.35,
-            )
-            fig4.update_traces(marker_line_width=0, marker=dict(cornerradius=8), textfont=dict(color="#E8EDF5", size=13, family="Inter"))
-            st.plotly_chart(fig4, use_container_width=True)
 
 # =========================
 # Tab: 안건
@@ -1141,7 +784,7 @@ elif menu == "🗂️ 안건":
     </div>
     """, unsafe_allow_html=True)
     
-    if not can_edit(): st.info("조회 권한입니다. 편집은 '권한 전환'으로 로그인하세요.")
+    if not can_edit(): st.info("조회 권한입니다.")
 
     with st.expander("➕ 새 안건 추가", expanded=False):
         with st.form("add_agenda_form", clear_on_submit=True):
@@ -1166,7 +809,6 @@ elif menu == "🗂️ 안건":
         st.success("안건이 추가되었습니다.")
         st.rerun()
 
-    # Summary
     ag_m1, ag_m2, ag_m3, ag_m4 = st.columns(4)
     ag_m1.metric("전체 안건", len(agenda_df))
     ag_m2.metric("진행 중", len(agenda_df[agenda_df["상태"] == "진행 중"]))
@@ -1233,9 +875,8 @@ elif menu == "⚖️ 의사결정":
     </div>
     """, unsafe_allow_html=True)
 
-    if not can_edit(): st.info("조회 권한입니다. 편집은 '권한 전환'으로 로그인하세요.")
+    if not can_edit(): st.info("조회 권한입니다.")
 
-    # Show past decisions
     if not decisions_df.empty:
         with st.expander(f"📋 저장된 의사결정 기록 ({len(decisions_df)}건)", expanded=False):
             st.dataframe(decisions_df[["안건명", "평가기준", "대안", "최종점수", "작성일"]], use_container_width=True, hide_index=True)
@@ -1247,36 +888,28 @@ elif menu == "⚖️ 의사결정":
 
     with st.form("decision_model_form"):
         st.markdown("#### 1. 대상 안건 및 기준 설정")
-        
         sel_agenda = st.selectbox("의사결정 대상 안건", active_agendas if active_agendas else ["등록된 안건 없음"])
         
         st.markdown("---")
-        
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("**평가 기준 및 가중치**")
-            st.caption("예: 예산(40%), 실현가능성(30%), 파급력(30%)")
-            criteria = []
-            weights = []
+            criteria = []; weights = []
             for i in range(st.session_state.criteria_count):
                 col_c, col_w = st.columns([7, 3])
-                with col_c: cr = st.text_input(f"기준 {i+1}", key=f"cr_{i}", placeholder=f"평가 기준 {i+1}")
+                with col_c: cr = st.text_input(f"기준 {i+1}", key=f"cr_{i}")
                 with col_w: wt = st.number_input("가중치(%)", min_value=0, max_value=100, value=round(100 // st.session_state.criteria_count), key=f"wt_{i}")
-                criteria.append(cr)
-                weights.append(wt)
+                criteria.append(cr); weights.append(wt)
                 
         with c2:
             st.markdown("**비교 대안**")
-            st.caption("예: A업체 진행, B업체 진행")
             alts = []
             for i in range(st.session_state.alt_count):
-                al = st.text_input(f"대안 {i+1}", key=f"alt_{i}", placeholder=f"대안 {i+1}")
+                al = st.text_input(f"대안 {i+1}", key=f"alt_{i}")
                 alts.append(al)
 
         st.markdown("---")
         st.markdown("#### 2. 대안별 평가 (1~10점)")
-        st.caption("각 대안이 해당 기준을 얼마나 잘 충족하는지 점수를 매겨주세요.")
-        
         scores = {}
         valid_criteria = [c for c in criteria if c.strip()]
         valid_alts = [a for a in alts if a.strip()]
@@ -1295,32 +928,15 @@ elif menu == "⚖️ 의사결정":
 
     if submitted:
         valid_weights = weights[:len(valid_criteria)]
-        weight_sum = sum(valid_weights)
-        
-        if weight_sum != 100:
-            st.error(f"가중치의 합이 100%가 되어야 합니다. (현재: {weight_sum}%)")
-        elif not valid_alts:
-            st.warning("비교할 대안을 최소 2개 입력해주세요.")
-        elif not valid_criteria:
-            st.warning("평가 기준을 최소 1개 입력해주세요.")
-        elif not sel_agenda or sel_agenda == "등록된 안건 없음":
-            st.warning("안건을 먼저 등록하고 선택해주세요.")
+        if sum(valid_weights) != 100:
+            st.error(f"가중치의 합이 100%가 되어야 합니다. (현재: {sum(valid_weights)}%)")
+        elif not valid_alts or not valid_criteria:
+            st.warning("대안 2개 이상, 평가 기준 1개 이상 입력해주세요.")
         else:
             results = []
-            detail_rows = []
             for alt, score_list in scores.items():
                 total_score = sum((score * weight / 100) for score, weight in zip(score_list, valid_weights))
                 results.append({"대안": alt, "최종 점수": round(total_score, 2)})
-                
-                # Detail per criterion
-                for idx, cr in enumerate(valid_criteria):
-                    detail_rows.append({
-                        "대안": alt,
-                        "기준": cr,
-                        "점수": score_list[idx],
-                        "가중치": valid_weights[idx],
-                        "가중 점수": round(score_list[idx] * valid_weights[idx] / 100, 2)
-                    })
             
             res_df = pd.DataFrame(results).sort_values("최종 점수", ascending=False)
             best_alt = res_df.iloc[0]["대안"]
@@ -1329,63 +945,17 @@ elif menu == "⚖️ 의사결정":
             st.markdown(f"""
             <div style="background:linear-gradient(135deg,rgba(94,234,160,0.1) 0%, rgba(108,156,255,0.05) 100%);
                         border:1px solid rgba(94,234,160,0.25);border-radius:16px;padding:24px 28px;margin:16px 0;">
-                <div style="font-size:13px;font-weight:700;color:#5EEAA0;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">
-                    알고리즘 추천 결과
-                </div>
-                <div style="font-size:24px;font-weight:900;color:#E8EDF5;letter-spacing:-0.02em;">
-                    {escape(best_alt)} <span style="color:#5EEAA0;font-size:18px;font-weight:700;">({best_score}점)</span>
-                </div>
+                <div style="font-size:13px;font-weight:700;color:#5EEAA0;text-transform:uppercase;">추천 결과</div>
+                <div style="font-size:24px;font-weight:900;color:#E8EDF5;">{escape(best_alt)} ({best_score}점)</div>
             </div>
             """, unsafe_allow_html=True)
             
-            rc1, rc2 = st.columns(2)
-            with rc1:
-                fig = px.bar(res_df, x="대안", y="최종 점수", text="최종 점수", 
-                             color="대안", color_discrete_sequence=["#6C9CFF", "#FF7EB3", "#5EEAA0", "#FFCB57", "#B18CFF"])
-                fig.update_layout(
-                    template="plotly_dark", height=320, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(family="Inter", color="#E8EDF5"), margin=dict(t=20, b=20, l=20, r=20),
-                    xaxis=dict(gridcolor="rgba(140,170,220,0.05)", title=""),
-                    yaxis=dict(gridcolor="rgba(140,170,220,0.05)", title="총점"),
-                    showlegend=False, bargap=0.35,
-                )
-                fig.update_traces(marker_line_width=0, marker=dict(cornerradius=8), textfont=dict(color="#E8EDF5", size=14, family="Inter"))
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with rc2:
-                st.markdown("##### 상세 평가표")
-                detail_df = pd.DataFrame(detail_rows)
-                st.dataframe(detail_df, use_container_width=True, hide_index=True)
-            
-            # Save decision result
-            new_decision = {
-                "id": str(uuid.uuid4()),
-                "안건명": sel_agenda,
-                "평가기준": ", ".join(valid_criteria),
-                "대안": " vs ".join(valid_alts),
-                "최종점수": f"1위: {best_alt} ({best_score}점)",
-                "작성일": safe_date_str(date.today())
-            }
-            decisions_df = pd.concat([decisions_df, pd.DataFrame([new_decision])], ignore_index=True)
-            st.session_state.decisions_df = decisions_df
-            save_df_to_gsheet(decisions_df, WORKSHEET_DECISIONS)
-
-    # Controls for criteria/alt count
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    adj1, adj2 = st.columns(2)
-    with adj1:
-        new_cc = st.number_input("평가 기준 개수", min_value=2, max_value=10, value=st.session_state.criteria_count)
-        if new_cc != st.session_state.criteria_count:
-            st.session_state.criteria_count = new_cc
-            st.rerun()
-    with adj2:
-        new_ac = st.number_input("대안 개수", min_value=2, max_value=10, value=st.session_state.alt_count)
-        if new_ac != st.session_state.alt_count:
-            st.session_state.alt_count = new_ac
-            st.rerun()
+            fig = px.bar(res_df, x="대안", y="최종 점수", text="최종 점수", color="대안", color_discrete_sequence=["#6C9CFF", "#FF7EB3", "#5EEAA0", "#FFCB57"])
+            fig.update_layout(template="plotly_dark", height=320, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# Tab: 문서 (회의록 → 문서로 변경)
+# Tab: 문서 (회의록)
 # =========================
 elif menu == "📄 문서":
     st.markdown("""
@@ -1398,10 +968,6 @@ elif menu == "📄 문서":
     if "sel_mtg_id" not in st.session_state: st.session_state.sel_mtg_id = None
     if "is_edit_mtg" not in st.session_state: st.session_state.is_edit_mtg = False
 
-    # ★★★ REDESIGN: Full-width document viewer (not crammed into a narrow column)
-    # Step 1: Navigation as a top selector or a compact sidebar section
-    
-    # Top action bar
     top_c1, top_c2, top_c3 = st.columns([1, 1, 2])
     with top_c1:
         if st.button("➕ 새 문서 작성", use_container_width=True, disabled=not can_edit(), type="primary"):
@@ -1415,11 +981,8 @@ elif menu == "📄 문서":
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-    # If no document is selected, show the document list (full width)
     if st.session_state.sel_mtg_id is None:
-        # Show categorized documents
         folders = ["전체 회의"] + TEAM_OPTIONS
-        
         for folder in folders:
             f_df = meetings_df[meetings_df["분류"] == folder].sort_values("회의일자", ascending=False)
             if f_df.empty: continue
@@ -1427,147 +990,97 @@ elif menu == "📄 문서":
             with st.expander(f"📁 {folder} ({len(f_df)}건)", expanded=True):
                 for _, r in f_df.iterrows():
                     col_title, col_date, col_author, col_action = st.columns([4, 1.5, 1.5, 1])
-                    with col_title:
-                        st.markdown(f"**{r['제목']}**")
-                    with col_date:
-                        st.caption(r['회의일자'])
-                    with col_author:
-                        st.caption(f"👤 {r['작성자']}")
+                    with col_title: st.markdown(f"**{r['제목']}**")
+                    with col_date: st.caption(r['회의일자'])
+                    with col_author: st.caption(f"👤 {r['작성자']}")
                     with col_action:
                         if st.button("열기", key=f"open_{r['id']}", use_container_width=True):
                             st.session_state.sel_mtg_id = r["id"]
                             st.session_state.is_edit_mtg = False
                             st.rerun()
-        
-        if meetings_df.empty:
-            st.markdown("""
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:#6B7B8D;">
-                <div style="font-size:48px;margin-bottom:16px;">📄</div>
-                <div style="font-size:16px;font-weight:700;">아직 문서가 없습니다</div>
-                <div style="font-size:13px;margin-top:4px;">상단의 '새 문서 작성' 버튼으로 시작하세요</div>
-            </div>
-            """, unsafe_allow_html=True)
 
-    # New document form — full width
     elif st.session_state.sel_mtg_id == "NEW":
-        st.markdown("""
-        <div style="background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:28px;margin-bottom:16px;">
-            <h3 style="margin:0 0 4px 0;">✨ 새 문서 작성</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        st.markdown("<div style='background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:28px;margin-bottom:16px;'><h3 style='margin:0;'>✨ 새 문서 작성</h3></div>", unsafe_allow_html=True)
         with st.form("new_mtg_form"):
-            f_title = st.text_input("제목", placeholder="문서 제목을 입력하세요")
+            f_title = st.text_input("제목")
             c1, c2, c3 = st.columns(3)
             with c1: f_folder = st.selectbox("분류", ["전체 회의"] + TEAM_OPTIONS)
             with c2: f_date = st.date_input("날짜", value=date.today())
-            with c3: f_author = st.text_input("작성자", placeholder="작성자 이름")
-            f_content = st.text_area("내용 (Markdown 지원)", height=500, placeholder="내용을 작성하세요...")
+            with c3: f_author = st.text_input("작성자", value=st.session_state.username)
+            f_content = st.text_area("내용 (Markdown 지원)", height=500)
             
             btn_c1, btn_c2 = st.columns([1, 3])
-            with btn_c1:
-                save_btn = st.form_submit_button("💾 저장", type="primary")
-            with btn_c2:
-                cancel_btn = st.form_submit_button("취소")
+            with btn_c1: save_btn = st.form_submit_button("💾 저장", type="primary")
+            with btn_c2: cancel_btn = st.form_submit_button("취소")
             
-            if save_btn:
-                if not f_title: st.warning("제목을 입력하세요.")
-                else:
-                    new_row = {
-                        "id": str(uuid.uuid4()), "분류": f_folder, "회의일자": safe_date_str(f_date),
-                        "제목": f_title, "작성자": f_author or "미정", "내용": f_content
-                    }
-                    meetings_df = pd.concat([meetings_df, pd.DataFrame([new_row])], ignore_index=True)
-                    st.session_state.meetings_df = meetings_df
-                    save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
-                    st.session_state.sel_mtg_id = new_row["id"]
-                    st.session_state.is_edit_mtg = False
-                    st.rerun()
+            if save_btn and f_title:
+                new_row = {"id": str(uuid.uuid4()), "분류": f_folder, "회의일자": safe_date_str(f_date), "제목": f_title, "작성자": f_author, "내용": f_content}
+                meetings_df = pd.concat([meetings_df, pd.DataFrame([new_row])], ignore_index=True)
+                st.session_state.meetings_df = meetings_df
+                save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
+                st.session_state.sel_mtg_id = new_row["id"]; st.session_state.is_edit_mtg = False; st.rerun()
             if cancel_btn:
-                st.session_state.sel_mtg_id = None
-                st.rerun()
+                st.session_state.sel_mtg_id = None; st.rerun()
 
-    # View/Edit existing document — full width
     else:
         m_data = meetings_df[meetings_df["id"] == st.session_state.sel_mtg_id]
-        if m_data.empty:
-            st.error("문서를 찾을 수 없습니다.")
-            st.session_state.sel_mtg_id = None
+        if m_data.empty: st.error("문서를 찾을 수 없습니다.")
         else:
             mtg = m_data.iloc[0]
             if not st.session_state.is_edit_mtg:
-                # Read mode — clean document view (Toss: one purpose per screen)
                 st.markdown(f"""
-                <div style="background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:32px 36px;margin-bottom:8px;">
-                    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-                        <span style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba(108,156,255,0.12);color:#6C9CFF;font-size:11px;font-weight:700;">📁 {escape(mtg['분류'])}</span>
-                        <span style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">📅 {escape(mtg['회의일자'])}</span>
-                        <span style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">👤 {escape(mtg['작성자'])}</span>
+                <div style="background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:32px;margin-bottom:8px;">
+                    <div style="display:flex;gap:8px;margin-bottom:16px;">
+                        <span style="padding:4px 12px;border-radius:999px;background:rgba(108,156,255,0.12);color:#6C9CFF;font-size:11px;font-weight:700;">📁 {escape(mtg['분류'])}</span>
+                        <span style="padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">📅 {escape(mtg['회의일자'])}</span>
+                        <span style="padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">👤 {escape(mtg['작성자'])}</span>
                     </div>
-                    <h2 style="margin:0 0 20px 0;font-size:26px;font-weight:900;letter-spacing:-0.03em;">{escape(mtg['제목'])}</h2>
-                    <div style="border-top:1px solid rgba(140,170,220,0.07);padding-top:20px;line-height:1.8;font-size:15px;color:#E8EDF5;font-weight:450;">
-                        {mtg['내용'].replace(chr(10), '<br>')}
-                    </div>
+                    <h2 style="margin:0 0 20px 0;font-size:26px;">{escape(mtg['제목'])}</h2>
+                    <div style="border-top:1px solid rgba(140,170,220,0.07);padding-top:20px;">{mtg['내용'].replace(chr(10), '<br>')}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
                 act_c1, act_c2, act_c3 = st.columns([1, 1, 4])
                 with act_c1:
                     if can_edit() and st.button("✏️ 수정", use_container_width=True):
-                        st.session_state.is_edit_mtg = True
-                        st.rerun()
+                        st.session_state.is_edit_mtg = True; st.rerun()
                 with act_c2:
                     if can_edit() and st.button("🗑️ 삭제", use_container_width=True):
                         keep_m = meetings_df[meetings_df["id"] != mtg['id']].reset_index(drop=True)
                         st.session_state.meetings_df = keep_m
                         save_df_to_gsheet(keep_m, WORKSHEET_MEETINGS)
-                        st.session_state.sel_mtg_id = None
-                        st.rerun()
-
+                        st.session_state.sel_mtg_id = None; st.rerun()
             else:
-                # Edit mode
-                st.markdown("""
-                <div style="background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:28px;margin-bottom:8px;">
-                    <h3 style="margin:0;">✏️ 문서 수정</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
                 with st.form("edit_mtg_form"):
                     f_title = st.text_input("제목", value=mtg['제목'])
                     c1, c2, c3 = st.columns(3)
-                    with c1: f_folder = st.selectbox("분류", ["전체 회의"] + TEAM_OPTIONS, index=(["전체 회의"]+TEAM_OPTIONS).index(mtg['분류']) if mtg['분류'] in (["전체 회의"]+TEAM_OPTIONS) else 0)
+                    with c1: f_folder = st.selectbox("분류", ["전체 회의"] + TEAM_OPTIONS, index=0)
                     with c2: f_date = st.date_input("날짜", value=pd.to_datetime(mtg['회의일자']).date())
                     with c3: f_author = st.text_input("작성자", value=mtg['작성자'])
                     f_content = st.text_area("내용", value=mtg['내용'], height=500)
 
                     btn_c1, btn_c2 = st.columns([1, 3])
                     with btn_c1:
-                        save_btn = st.form_submit_button("💾 저장", type="primary")
+                        if st.form_submit_button("💾 저장", type="primary"):
+                            idx = meetings_df.index[meetings_df["id"] == mtg['id']].tolist()[0]
+                            meetings_df.at[idx, '제목'] = f_title; meetings_df.at[idx, '분류'] = f_folder; meetings_df.at[idx, '회의일자'] = safe_date_str(f_date); meetings_df.at[idx, '작성자'] = f_author; meetings_df.at[idx, '내용'] = f_content
+                            st.session_state.meetings_df = meetings_df
+                            save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
+                            st.session_state.is_edit_mtg = False; st.rerun()
                     with btn_c2:
-                        cancel_btn = st.form_submit_button("취소")
-                    
-                    if save_btn:
-                        idx = meetings_df.index[meetings_df["id"] == mtg['id']].tolist()[0]
-                        meetings_df.at[idx, '제목'] = f_title
-                        meetings_df.at[idx, '분류'] = f_folder
-                        meetings_df.at[idx, '회의일자'] = safe_date_str(f_date)
-                        meetings_df.at[idx, '작성자'] = f_author
-                        meetings_df.at[idx, '내용'] = f_content
-                        st.session_state.meetings_df = meetings_df
-                        save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
-                        st.session_state.is_edit_mtg = False
-                        st.rerun()
-                    if cancel_btn:
-                        st.session_state.is_edit_mtg = False
-                        st.rerun()
+                        if st.form_submit_button("취소"): st.session_state.is_edit_mtg = False; st.rerun()
 
+# =========================
+# Tab: 작업 전송
+# =========================
 elif menu == "🤖 작업 전송":
     st.markdown("""
-    <div style="margin-bottom:24px;">
-        <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
-        <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
-    </div>
-    """, unsafe_allow_html=True)
+        <div style="margin-bottom:24px;">
+            <h2 style="font-size:24px;font-weight:900;margin:0;">🤖 작업 전송</h2>
+            <p style="color:#9BAABB;font-size:13px;margin:6px 0 0 0;">새로운 업무와 안건을 디스코드 팀 채널로 공유하세요</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     if not can_edit(): 
         st.info("조회 권한에서는 디스코드 전송이 불가합니다. '권한 전환'으로 로그인하세요.")
 
