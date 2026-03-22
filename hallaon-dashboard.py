@@ -345,28 +345,69 @@ def init_data():
     st.session_state.decisions_df = normalize_decisions_df(load_gsheet_to_df(WORKSHEET_DECISIONS))
 
 # =========================
-# 🔐 AUTH GATE (이름/PW 기반 로그인)
+# 🔐 AUTH GATE (이름/PW 기반 로그인 + 시네마틱 인트로)
 # =========================
 def auth_gate():
     if st.session_state.get("role") is not None:
         return
 
-    # 🚨 로고 절대 경로 추적 강화
+    # 🚨 로고 절대/상대 경로 이중 추적
     logo_b64 = ""
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(current_dir, LOGO_IMAGE_PATH)
         
+        if not os.path.exists(logo_path):
+            logo_path = LOGO_IMAGE_PATH
+            
         if os.path.exists(logo_path):
             logo_b64 = get_base64_of_bin_file(logo_path)
-        else:
-            print(f"로고 파일을 찾을 수 없습니다: {logo_path}")
     except Exception as e:
-        print(f"로고 인코딩 에러: {e}")
+        pass
 
+    # === 🎬 [신규] 시네마틱 인트로 애니메이션 (최초 1회만 실행) ===
+    if "intro_played" not in st.session_state:
+        st.session_state.intro_played = True  # 다음 새로고침부터는 재생 안 함
+        if logo_b64:
+            st.markdown(f"""
+            <style>
+            .cyber-intro {{
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background-color: var(--sf-ground); z-index: 999999;
+                display: flex; justify-content: center; align-items: center;
+                animation: introSequence 3.5s ease-in-out forwards;
+                pointer-events: none; /* 클릭 방해 금지 */
+            }}
+            .cyber-logo {{
+                width: 160px; height: 160px; object-fit: contain;
+                animation: logoRevealGlitch 3.2s ease-in-out forwards;
+            }}
+            /* 전체 화면 페이드 아웃 */
+            @keyframes introSequence {{
+                0%, 80% {{ opacity: 1; z-index: 999999; visibility: visible; }}
+                100% {{ opacity: 0; z-index: -1; visibility: hidden; display: none; }}
+            }}
+            /* 로고 서서히 등장 -> 글리치(치지직) -> 서서히 사라짐 */
+            @keyframes logoRevealGlitch {{
+                0% {{ opacity: 0; filter: blur(10px); transform: scale(0.85); }}
+                25% {{ opacity: 1; filter: blur(0px); transform: scale(1); }}
+                60% {{ opacity: 1; transform: translate(0, 0) skew(0deg); filter: drop-shadow(0 0 0 transparent); }}
+                62% {{ transform: translate(-6px, 3px) skew(5deg); filter: drop-shadow(-3px 0 0 #FF6B6B) drop-shadow(3px 0 0 #6C9CFF); opacity: 0.8; }}
+                64% {{ transform: translate(6px, -3px) skew(-5deg); filter: drop-shadow(3px 0 0 #FF6B6B) drop-shadow(-3px 0 0 #6C9CFF); opacity: 0.9; }}
+                66% {{ transform: translate(-2px, 5px) skew(2deg); filter: transparent; opacity: 1; }}
+                68% {{ transform: translate(0, 0) skew(0deg); opacity: 1; }}
+                75% {{ opacity: 1; transform: scale(1); filter: blur(0px); }}
+                100% {{ opacity: 0; transform: scale(1.2); filter: blur(8px); }}
+            }}
+            </style>
+            <div class="cyber-intro">
+                <img src="data:image/png;base64,{logo_b64}" class="cyber-logo" />
+            </div>
+            """, unsafe_allow_html=True)
+
+    # === 기존 로그인 화면 HTML ===
     logo_html = f'<div class="login-logo-container"><img src="data:image/png;base64,{logo_b64}" class="login-logo-img" alt="Logo"/></div>' if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
 
-    # 🚨 완벽한 강제 중앙 정렬 레이아웃 적용
     st.markdown(f"""
     <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:70vh; text-align:center;">
         <div style="display:flex; flex-direction:column; align-items:center; max-width:360px; width:100%;">
