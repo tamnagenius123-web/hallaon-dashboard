@@ -364,7 +364,7 @@ def auth_gate():
     except Exception as e:
         print(f"로고 인코딩 에러: {e}")
 
-    logo_html = f'<div class="login-logo-container"><img src="data:image/jpeg;base64,{logo_b64}" class="login-logo-img" alt="Logo"/></div>' if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
+    logo_html = f'<div class="login-logo-container"><img src="data:image/png;base64,{logo_b64}" class="login-logo-img" alt="Logo"/></div>' if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
 
     # 🚨 완벽한 강제 중앙 정렬 레이아웃 적용
     st.markdown(f"""
@@ -415,6 +415,10 @@ def can_edit():
 # MAIN APP 실행 구조 (최적화)
 # =========================
 
+# =========================
+# MAIN APP 실행 구조 (최적화)
+# =========================
+
 # 1. 로그인 폼을 띄우기 위해 가벼운 Users 시트만 먼저 로드!
 if "users_df" not in st.session_state:
     st.session_state.users_df = normalize_users_df(load_gsheet_to_df(WORKSHEET_USERS))
@@ -422,11 +426,13 @@ if "users_df" not in st.session_state:
 # 2. 로그인 게이트 실행 (여기서 통과하지 못하면 밑으로 안 넘어감)
 auth_gate()
 
-# 3. 로그인 성공 시 무거운 업무/회의록 데이터 로드 (최초 1회만 스피너)
-if "tasks_df" not in st.session_state:
+# 3. 🚨 [수정됨] 로그인 성공 시 무거운 데이터 로드 (하나라도 없으면 무조건 다시 불러옴)
+required_dfs = ["tasks_df", "agenda_df", "meetings_df", "decisions_df"]
+if any(df_name not in st.session_state for df_name in required_dfs):
     with st.spinner("🏛️ 한라온 데이터를 불러오고 있습니다..."):
         init_data()
 
+# 이제 안전하게 복사 가능!
 tasks_df = st.session_state.tasks_df.copy()
 agenda_df = st.session_state.agenda_df.copy()
 meetings_df = st.session_state.meetings_df.copy()
