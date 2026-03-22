@@ -371,7 +371,7 @@ def auth_gate():
     <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:70vh; text-align:center;">
         <div style="display:flex; flex-direction:column; align-items:center; max-width:360px; width:100%;">
             {logo_html}
-            <h1 style="font-size:28px; font-weight:900; margin:0 0 4px 0; letter-spacing:-0.03em; padding:0; text-align:center;">Hallaon</h1>
+            <h1 style="font-size:28px; font-weight:900; margin:0 0 4px 0; letter-spacing:-0.03em; padding:0; text-align:center;"> HALLAON</h1>
             <p style="color:#6B7B8D; font-size:13px; margin:0 0 36px 0; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; text-align:center;">WORKSPACE</p>
         </div>
     </div>
