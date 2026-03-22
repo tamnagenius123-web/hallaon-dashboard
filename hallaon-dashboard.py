@@ -138,8 +138,35 @@ button[kind="primary"], button[data-testid="stFormSubmitButton"] > button { back
 button[kind="primary"]:hover { box-shadow: var(--sh-md), 0 0 20px rgba(108,156,255,0.3) !important; transform: translateY(-1px); }
 button[kind="secondary"] { background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-md) !important; }
 
-input, textarea { background: var(--sf-base) !important; border: 1.5px solid var(--bd-default) !important; border-radius: var(--r-sm) !important; }
-input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft) !important; }
+div[data-baseweb="input"] input,
+div[data-baseweb="input"] textarea,
+div[data-baseweb="base-input"] input,
+input, textarea {
+    background: var(--sf-base) !important;
+    color: var(--tx-primary) !important;
+    -webkit-text-fill-color: var(--tx-primary) !important; 
+    border: 1.5px solid var(--bd-default) !important;
+    border-radius: var(--r-sm) !important;
+    padding: var(--sp-3) var(--sp-4) !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all var(--dur-fast) var(--ease-out);
+    caret-color: var(--accent) !important;
+    min-height: 44px;
+}
+div[data-baseweb="input"] input:focus,
+div[data-baseweb="input"] textarea:focus,
+input:focus, textarea:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px var(--accent-soft) !important;
+    outline: none !important;
+    background: var(--sf-raised) !important;
+}
+input::placeholder, textarea::placeholder {
+    color: var(--tx-tertiary) !important;
+    -webkit-text-fill-color: var(--tx-tertiary) !important;
+    font-weight: 400;
+}
 [data-testid="stForm"] { background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-xl) !important; padding: var(--sp-6) !important; }
 .role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: var(--r-full); font-size: 12px; font-weight: 700; border: 1px solid var(--bd-default); background: var(--sf-overlay); color: var(--accent) !important; }
 </style>
@@ -324,23 +351,28 @@ def auth_gate():
     if st.session_state.get("role") is not None:
         return
 
-    # 로고 Base64 인코딩
+    # 🚨 로고 절대 경로 추적 강화
     logo_b64 = ""
     try:
-        if os.path.exists(LOGO_IMAGE_PATH):
-            logo_b64 = get_base64_of_bin_file(LOGO_IMAGE_PATH)
-    except Exception:
-        pass
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_path = os.path.join(current_dir, LOGO_IMAGE_PATH)
+        
+        if os.path.exists(logo_path):
+            logo_b64 = get_base64_of_bin_file(logo_path)
+        else:
+            print(f"로고 파일을 찾을 수 없습니다: {logo_path}")
+    except Exception as e:
+        print(f"로고 인코딩 에러: {e}")
 
-    # 로그인 화면 HTML 
     logo_html = f'<div class="login-logo-container"><img src="data:image/jpeg;base64,{logo_b64}" class="login-logo-img" alt="Logo"/></div>' if logo_b64 else '<div style="font-size:48px; text-align:center; margin-bottom:12px;">🏛️</div>'
 
+    # 🚨 완벽한 강제 중앙 정렬 레이아웃 적용
     st.markdown(f"""
-    <div style="display:flex;justify-content:center;align-items:center;min-height:70vh;">
-        <div style="text-align:center;max-width:360px;width:100%;">
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:70vh; text-align:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; max-width:360px; width:100%;">
             {logo_html}
-            <h1 style="font-size:28px;font-weight:900;margin:0 0 4px 0;letter-spacing:-0.03em;">Hallaon</h1>
-            <p style="color:#6B7B8D;font-size:13px;margin-bottom:36px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">WORKSPACE</p>
+            <h1 style="font-size:28px; font-weight:900; margin:0 0 4px 0; letter-spacing:-0.03em; padding:0; text-align:center;">Hallaon</h1>
+            <p style="color:#6B7B8D; font-size:13px; margin:0 0 36px 0; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; text-align:center;">WORKSPACE</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -348,7 +380,7 @@ def auth_gate():
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         with st.form("login_form"):
-            st.markdown("<div style='font-size:13px; font-weight:700; color:#9BAABB; margin-bottom:12px;'>팀 계정으로 로그인하세요</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:13px; font-weight:700; color:#9BAABB; margin-bottom:12px; text-align:center;'>팀 계정으로 로그인하세요</div>", unsafe_allow_html=True)
             user_id = st.text_input("이름 (ID)", placeholder="자신의 이름을 입력하세요")
             user_pw = st.text_input("비밀번호", type="password", placeholder="비밀번호 입력")
             submit = st.form_submit_button("로그인", type="primary", use_container_width=True)
