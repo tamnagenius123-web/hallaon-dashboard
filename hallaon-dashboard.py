@@ -126,15 +126,20 @@ small, [data-testid="stCaptionContainer"] * { color: var(--tx-secondary) !import
 section[data-testid="stSidebar"] { background: var(--sf-base) !important; border-right: 1px solid var(--bd-subtle) !important; }
 section[data-testid="stSidebar"] * { color: var(--tx-primary) !important; }
 /* Sidebar Radio Button custom look (Monday-style) */
-section[data-testid="stSidebar"] [data-baseweb="radio"] div:first-child { display: none !important; }
-section[data-testid="stSidebar"] [data-baseweb="radio"] label {
+section[data-testid="stSidebar"] [role="radiogroup"] label {
     border-radius: var(--r-md) !important; padding: 10px 14px !important;
     transition: all var(--dur-fast) var(--ease-out); margin-bottom: 4px !important;
-    background: transparent;
+    background: transparent; cursor: pointer;
 }
-section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover { background: var(--accent-hover) !important; }
-section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div {
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: var(--accent-soft) !important; }
+section[data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] {
+    background: rgba(108,156,255,0.1) !important;
     font-weight: 800 !important; color: var(--accent) !important;
+    border-left: 3px solid var(--accent) !important;
+}
+/* Ensure text visibility */
+section[data-testid="stSidebar"] [role="radiogroup"] label > div {
+    font-size: 14px; margin-left: 0 !important;
 }
 section[data-testid="stSidebar"] .sidebar-logo { width: 36px; height: 36px; border-radius: 10px; background: #fff; padding: 4px; object-fit: contain; }
 
