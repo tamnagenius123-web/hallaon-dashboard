@@ -125,11 +125,17 @@ small, [data-testid="stCaptionContainer"] * { color: var(--tx-secondary) !import
 /* ─── SIDEBAR ─── */
 section[data-testid="stSidebar"] { background: var(--sf-base) !important; border-right: 1px solid var(--bd-subtle) !important; }
 section[data-testid="stSidebar"] * { color: var(--tx-primary) !important; }
+/* Sidebar Radio Button custom look (Monday-style) */
+section[data-testid="stSidebar"] [data-baseweb="radio"] div:first-child { display: none !important; }
 section[data-testid="stSidebar"] [data-baseweb="radio"] label {
     border-radius: var(--r-md) !important; padding: 10px 14px !important;
-    transition: all var(--dur-fast) var(--ease-out); margin-bottom: 2px !important;
+    transition: all var(--dur-fast) var(--ease-out); margin-bottom: 4px !important;
+    background: transparent;
 }
-section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover { background: var(--accent-soft) !important; }
+section[data-testid="stSidebar"] [data-baseweb="radio"] label:hover { background: var(--accent-hover) !important; }
+section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div {
+    font-weight: 800 !important; color: var(--accent) !important;
+}
 section[data-testid="stSidebar"] .sidebar-logo { width: 36px; height: 36px; border-radius: 10px; background: #fff; padding: 4px; object-fit: contain; }
 
 /* Sidebar collapse button */
@@ -150,7 +156,7 @@ div[data-testid="metric-container"]:hover { box-shadow: var(--sh-md) !important;
 div[data-testid="stMetricLabel"] { color: var(--tx-secondary) !important; font-size: 12px !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.06em; }
 div[data-testid="stMetricValue"] { color: var(--tx-primary) !important; font-size: 30px !important; font-weight: 900 !important; }
 
-/* ─── DATAFRAMES ─── */
+/* ─── DATAFRAMES / GLIDE DATA GRID VISIBILITY FIX ─── */
 div[data-testid="stDataFrame"] {
     background: var(--sf-raised) !important; border: 1px solid var(--bd-default) !important;
     border-radius: var(--r-lg) !important; overflow: hidden;
@@ -159,6 +165,11 @@ div[data-testid="stDataFrame"] [role="columnheader"] {
     background: var(--sf-overlay) !important; color: var(--tx-secondary) !important;
     font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
 }
+/* Data Editor dropdown styling fix (white text on white bg) */
+div[data-testid="stDataFrame"] select, .gdg-style-select { 
+    background-color: var(--sf-overlay) !important; color: var(--tx-primary) !important;
+}
+*[class*="gdg"] { color: var(--tx-inverse) !important; }
 
 /* ─── EXPANDERS ─── */
 div[data-testid="stExpander"] details {
@@ -169,7 +180,7 @@ div[data-testid="stExpander"] summary { background: var(--sf-overlay) !important
 div[data-testid="stExpanderDetails"] { background: var(--sf-raised) !important; }
 
 /* ─── BUTTONS ─── */
-button[kind="primary"], button[data-testid="stFormSubmitButton"] > button {
+button[kind="primary"] {
     background: linear-gradient(135deg, #6C9CFF 0%, #5580E0 100%) !important;
     color: var(--tx-inverse) !important; border-radius: var(--r-md) !important;
     box-shadow: var(--sh-sm), 0 0 12px rgba(108,156,255,0.15) !important;
@@ -177,7 +188,17 @@ button[kind="primary"], button[data-testid="stFormSubmitButton"] > button {
     border: none !important;
 }
 button[kind="primary"]:hover { box-shadow: var(--sh-md), 0 0 20px rgba(108,156,255,0.3) !important; transform: translateY(-1px); }
-button[kind="secondary"] { background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; border-radius: var(--r-md) !important; color: var(--tx-primary) !important; }
+button[kind="secondary"], button[data-testid="stFormSubmitButton"] > button { 
+    background: var(--sf-overlay) !important; border: 1px solid var(--bd-default) !important; 
+    border-radius: var(--r-md) !important; color: var(--tx-primary) !important; 
+}
+button[kind="secondary"]:hover, button[data-testid="stFormSubmitButton"] > button:hover {
+    background: var(--sf-raised) !important;
+}
+button[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+    background: linear-gradient(135deg, #6C9CFF 0%, #5580E0 100%) !important; color: var(--tx-inverse) !important;
+    border: none !important;
+}
 
 /* ─── INPUTS — COMPLETE FIX ─── */
 input, textarea,
@@ -931,7 +952,7 @@ elif menu == "📋 업무 및 WBS":
     edited = st.data_editor(
         e[["선택","WBS_코드","선행_업무","업무명","담당자","팀","상태","시작일","종료일","기대_시간(TE)"]],
         use_container_width=True, hide_index=True, disabled=not can_edit(),
-        column_config={"선택": st.column_config.CheckboxColumn("선택",width="small"), "상태": st.column_config.SelectboxColumn("상태",options=TASK_STATUS_OPTIONS)}
+        column_config={"선택": st.column_config.CheckboxColumn("선택",width="small"), "상태": st.column_config.SelectboxColumn("상태",options=TASK_STATUS_OPTIONS), "팀": st.column_config.SelectboxColumn("팀",options=TEAM_OPTIONS)}
     )
     c1, c2 = st.columns(2)
     with c1:
@@ -1051,6 +1072,9 @@ elif menu == "📅 캘린더":
         .fc-event{border-radius:5px;padding:2px 5px;font-size:11px;font-weight:600;border-width:1px !important;}
         .fc-daygrid-day-number{color:#9BAABB !important;font-weight:600;font-size:13px;}
         .fc-col-header-cell-cushion{color:#6B7B8D !important;font-weight:700;font-size:12px;text-transform:uppercase;}
+        /* White Flash / Dark theme fixes */
+        .fc-theme-standard .fc-scrollgrid, .fc-view-harness, .fc { background: #101621 !important; border: none !important; }
+        .fc-col-header-cell, .fc-scrollgrid-sync-inner { background: #151C2A !important; }
     """
     st.markdown("<div style='background:#101621;padding:16px;border-radius:20px;border:1px solid rgba(140,170,220,0.1);overflow:hidden;'>", unsafe_allow_html=True)
     calendar(events=cal_events, options=cal_opts, custom_css=cal_css, key="main_cal")
@@ -1183,7 +1207,7 @@ elif menu == "🗂️ 안건":
     ea = agenda_df.copy(); ea.insert(0, "선택", False)
     ea["입안일"] = pd.to_datetime(ea["입안일"]).dt.date
     edited_a = st.data_editor(ea[["선택","안건명","입안자","팀","상태","입안일"]], use_container_width=True, hide_index=True, disabled=not can_edit(),
-        column_config={"선택": st.column_config.CheckboxColumn("선택",width="small"), "상태": st.column_config.SelectboxColumn("상태",options=AGENDA_STATUS_OPTIONS)})
+        column_config={"선택": st.column_config.CheckboxColumn("선택",width="small"), "상태": st.column_config.SelectboxColumn("상태",options=AGENDA_STATUS_OPTIONS), "팀": st.column_config.SelectboxColumn("팀",options=TEAM_OPTIONS)})
     c1, c2 = st.columns(2)
     with c1:
         if st.button("💾 저장", type="primary", disabled=not can_edit(), use_container_width=True, key="save_ag"):
@@ -1222,7 +1246,8 @@ elif menu == "⚖️ 의사결정":
             for i in range(st.session_state.criteria_count):
                 cc, cw = st.columns([7, 3])
                 with cc: cr = st.text_input(f"기준 {i+1}", key=f"cr_{i}")
-                with cw: wt = st.number_input("가중치(%)", 0, 100, round(100//st.session_state.criteria_count), key=f"wt_{i}")
+                default_wt = 34 if i == 0 else (100 - 34) // (st.session_state.criteria_count - 1)
+                with cw: wt = st.number_input("가중치(%)", 0, 100, default_wt, key=f"wt_{i}")
                 criteria.append(cr); weights.append(wt)
         alts = []
         with c2:
@@ -1270,11 +1295,21 @@ elif menu == "📄 문서":
 
     if "sel_mtg_id" not in st.session_state: st.session_state.sel_mtg_id = None
     if "is_edit_mtg" not in st.session_state: st.session_state.is_edit_mtg = False
+    
+    # 📝 템플릿 목록
+    DOC_TEMPLATES = {
+        "📝 회의록": "# 📝 회의록\n\n**일시:** \n**참석자:** \n\n## 🎯 안건\n1. \n2. \n\n## 🗣️ 논의 내용\n- \n- \n\n## ✅ 결정 사항\n- [ ] \n- [ ] ",
+        "🎉 행사 기획서": "# 🎉 행사 기획서\n\n## 1. 개요\n**행사명:** \n**목표:** \n\n## 2. 세부 기획\n- \n\n## 3. 예산 및 리소스\n- \n\n## 4. 타임라인\n- [ ] ",
+        "📊 결과 보고서": "# 📊 결과 보고서\n\n## 1. 진행 요약\n- \n\n## 2. 성과 및 지표\n- \n\n## 3. 회고 (KPT)\n**Keep:** \n**Problem:** \n**Try:** ",
+        "🚨 오류 리포트": "# 🚨 오류 리포트\n\n**발생 일시:** \n**우선순위:** 🔴 높음 / 🟡 보통 / 🟢 낮음\n\n## 🐛 증상\n- \n\n## 🔍 재현 방법\n1. \n2. \n\n## 💡 해결 방안\n- "
+    }
 
     tc1, tc2, tc3 = st.columns([1, 1, 2])
     with tc1:
         if st.button("➕ 새 문서", use_container_width=True, disabled=not can_edit(), type="primary"):
-            st.session_state.sel_mtg_id = "NEW"; st.session_state.is_edit_mtg = True; st.rerun()
+            st.session_state.sel_mtg_id = "NEW"; st.session_state.is_edit_mtg = True
+            st.session_state.doc_content = ""
+            st.rerun()
     with tc2:
         if st.button("📋 전체 목록", use_container_width=True):
             st.session_state.sel_mtg_id = None; st.rerun()
@@ -1294,111 +1329,173 @@ elif menu == "📄 문서":
                         if st.button("열기", key=f"o_{r['id']}", use_container_width=True):
                             st.session_state.sel_mtg_id = r["id"]; st.session_state.is_edit_mtg = False; st.rerun()
 
-    elif st.session_state.sel_mtg_id == "NEW":
-        st.markdown("### ✨ 새 문서 작성")
-        with st.form("new_doc"):
-            f_title = st.text_input("제목", placeholder="문서 제목")
-            c1, c2, c3 = st.columns(3)
-            with c1: f_folder = st.selectbox("분류", ["전체 회의"] + TEAM_OPTIONS)
-            with c2: f_date = st.date_input("날짜")
-            with c3: f_author = st.text_input("작성자", value=st.session_state.get("username",""))
+    elif st.session_state.sel_mtg_id == "NEW" or st.session_state.is_edit_mtg:
+        is_new = (st.session_state.sel_mtg_id == "NEW")
+        st.markdown(f"### {'✨ 새 문서 작성' if is_new else '✏️ 문서 수정'}")
+        
+        # Load existing data to session state if needed
+        if not is_new and "doc_loaded" not in st.session_state:
+            mtg = meetings_df[meetings_df["id"] == st.session_state.sel_mtg_id].iloc[0]
+            st.session_state.doc_title = mtg['제목']
+            st.session_state.doc_folder = mtg['분류']
+            st.session_state.doc_date = pd.to_datetime(mtg['회의일자']).date()
+            st.session_state.doc_author = mtg['작성자']
+            st.session_state.doc_content = mtg['내용']
+            st.session_state.doc_lt = [t.strip() for t in str(mtg.get("linked_tasks","")).split(",") if t.strip()]
+            st.session_state.doc_la = [a.strip() for a in str(mtg.get("linked_agendas","")).split(",") if a.strip()]
+            st.session_state.doc_loaded = True
+        elif is_new and "doc_loaded" not in st.session_state:
+            st.session_state.doc_title = ""
+            st.session_state.doc_folder = "전체 회의"
+            st.session_state.doc_date = date.today()
+            st.session_state.doc_author = st.session_state.get("username","")
+            st.session_state.doc_content = ""
+            st.session_state.doc_lt = []
+            st.session_state.doc_la = []
+            st.session_state.doc_loaded = True
 
-            # Linked tasks & agendas
-            st.markdown("**📎 관련 항목 연결**")
-            lc1, lc2 = st.columns(2)
-            with lc1:
-                task_options = tasks_df["업무명"].tolist() if not tasks_df.empty else []
-                linked_tasks = st.multiselect("관련 업무 연결", task_options)
-            with lc2:
-                agenda_options = agenda_df["안건명"].tolist() if not agenda_df.empty else []
-                linked_agendas = st.multiselect("관련 안건 연결", agenda_options)
+        # Templates (Only show for new docs)
+        if is_new:
+            st.markdown("<div style='margin-bottom:12px;font-size:13px;color:#9BAABB;font-weight:600;'>📝 템플릿 불러오기</div>", unsafe_allow_html=True)
+            tpl_cols = st.columns(len(DOC_TEMPLATES))
+            for i, (t_name, t_content) in enumerate(DOC_TEMPLATES.items()):
+                if tpl_cols[i].button(t_name, use_container_width=True, key=f"tpl_{i}"):
+                    st.session_state.doc_content = t_content
+                    st.rerun()
 
-            f_content = st.text_area("내용 (Markdown 지원)", height=450, placeholder="내용을 작성하세요...\n\n# 제목\n## 소제목\n- 항목 1\n- 항목 2\n**굵게**, *이탤릭*")
+        # Input Fields
+        f_title = st.text_input("제목", value=st.session_state.doc_title, placeholder="문서 제목")
+        c1, c2, c3 = st.columns(3)
+        with c1: f_folder = st.selectbox("분류", ["전체 회의"] + TEAM_OPTIONS, index=(["전체 회의"] + TEAM_OPTIONS).index(st.session_state.doc_folder) if st.session_state.doc_folder in ["전체 회의"] + TEAM_OPTIONS else 0)
+        with c2: f_date = st.date_input("날짜", value=st.session_state.doc_date)
+        with c3: f_author = st.text_input("작성자", value=st.session_state.doc_author)
 
-            bc1, bc2 = st.columns([1, 3])
-            with bc1: save = st.form_submit_button("💾 저장", type="primary")
-            with bc2: cancel = st.form_submit_button("취소")
-            if save and f_title:
-                new = {"id": str(uuid.uuid4()), "분류": f_folder, "회의일자": safe_date_str(f_date), "제목": f_title, "작성자": f_author, "내용": f_content, "linked_tasks": ",".join(linked_tasks), "linked_agendas": ",".join(linked_agendas)}
-                meetings_df = pd.concat([meetings_df, pd.DataFrame([new])], ignore_index=True)
-                st.session_state.meetings_df = meetings_df; save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
-                st.session_state.sel_mtg_id = new["id"]; st.session_state.is_edit_mtg = False; st.rerun()
-            if cancel: st.session_state.sel_mtg_id = None; st.rerun()
+        # Relation Links
+        st.markdown("""<div style="margin-top:8px;margin-bottom:4px;font-size:13px;font-weight:700;color:#9BAABB;">🔗 관계형 연결 (Relations)</div>""", unsafe_allow_html=True)
+        r1, r2 = st.columns(2)
+        with r1:
+            task_options = tasks_df["업무명"].tolist() if not tasks_df.empty else []
+            f_lt = st.multiselect("관련 업무 (WBS)", task_options, default=[t for t in st.session_state.doc_lt if t in task_options])
+        with r2:
+            agenda_options = agenda_df["안건명"].tolist() if not agenda_df.empty else []
+            f_la = st.multiselect("관련 안건", agenda_options, default=[a for a in st.session_state.doc_la if a in agenda_options])
+
+        st.markdown("<hr style='border-color:rgba(140,170,220,0.1);margin:24px 0;'>", unsafe_allow_html=True)
+        
+        # Base64 Image Uploader
+        st.markdown("""<div style="font-size:13px;font-weight:700;color:#9BAABB;margin-bottom:8px;">📎 이미지 첨부 (Base64)</div>""", unsafe_allow_html=True)
+        img_upload = st.file_uploader("이미지를 업로드하면 마크다운 본문에 자동 삽입됩니다.", type=["png", "jpg", "jpeg", "gif"])
+        if img_upload is not None:
+            bytes_data = img_upload.getvalue()
+            b64 = base64.b64encode(bytes_data).decode()
+            mime = "image/png"
+            if img_upload.name.lower().endswith("jpg") or img_upload.name.lower().endswith("jpeg"): mime = "image/jpeg"
+            elif img_upload.name.lower().endswith("gif"): mime = "image/gif"
+            
+            md_img = f"\n\n![{img_upload.name}](data:{mime};base64,{b64})\n"
+            st.session_state.doc_content += md_img
+            st.success("✅ 이미지가 본문에 삽입되었습니다!")
+
+        # Markdown Split View (Live Preview)
+        st.markdown("""<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:700;color:#E8EDF5;">👁️ 실시간 마크다운 에디터 & 미리보기</div>
+            <div style="font-size:11px;color:#6B7B8D;">* 에디터 바깥을 클릭(포커스 아웃)하거나 Mac(Cmd+Enter)/Win(Ctrl+Enter)를 눌러야 미리보기가 갱신됩니다.</div>
+        </div>""", unsafe_allow_html=True)
+        
+        edit_col, prev_col = st.columns(2)
+        with edit_col:
+            f_content = st.text_area("에디터 내역", value=st.session_state.doc_content, height=600, label_visibility="collapsed")
+            st.session_state.doc_content = f_content
+            
+        with prev_col:
+            st.markdown("""<div style="background:#101621;border:1px solid rgba(140,170,220,0.2);border-radius:12px;padding:20px;height:600px;overflow-y:auto;box-shadow:inset 0 2px 10px rgba(0,0,0,0.2);">""", unsafe_allow_html=True)
+            if st.session_state.doc_content.strip():
+                st.markdown(st.session_state.doc_content)
+            else:
+                st.markdown("<div style='color:#6B7B8D;text-align:center;margin-top:200px;'>작성을 시작하면 미리보기가 표시됩니다.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Save actions
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        bc1, bc2 = st.columns([1, 4])
+        with bc1:
+            if st.button("💾 저장", type="primary", use_container_width=True):
+                if f_title:
+                    content = st.session_state.doc_content
+                    if is_new:
+                        new_id = str(uuid.uuid4())
+                        new = {"id": new_id, "분류": f_folder, "회의일자": safe_date_str(f_date), "제목": f_title, "작성자": f_author, "내용": content, "linked_tasks": ",".join(f_lt), "linked_agendas": ",".join(f_la)}
+                        meetings_df = pd.concat([meetings_df, pd.DataFrame([new])], ignore_index=True)
+                    else:
+                        idx = meetings_df.index[meetings_df["id"]==st.session_state.sel_mtg_id].tolist()[0]
+                        meetings_df.at[idx,'제목'] = f_title; meetings_df.at[idx,'분류'] = f_folder
+                        meetings_df.at[idx,'회의일자'] = safe_date_str(f_date); meetings_df.at[idx,'작성자'] = f_author
+                        meetings_df.at[idx,'내용'] = content
+                        meetings_df.at[idx,'linked_tasks'] = ",".join(f_lt)
+                        meetings_df.at[idx,'linked_agendas'] = ",".join(f_la)
+                    
+                    st.session_state.meetings_df = meetings_df
+                    save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
+                    st.session_state.sel_mtg_id = new_id if is_new else st.session_state.sel_mtg_id
+                    st.session_state.is_edit_mtg = False
+                    if "doc_loaded" in st.session_state: del st.session_state.doc_loaded
+                    st.rerun()
+                else:
+                    st.error("제목을 입력해주세요.")
+        with bc2:
+            if st.button("취소"):
+                if "doc_loaded" in st.session_state: del st.session_state.doc_loaded
+                st.session_state.is_edit_mtg = False
+                if is_new: st.session_state.sel_mtg_id = None
+                st.rerun()
 
     else:
+        # View mode
         md = meetings_df[meetings_df["id"] == st.session_state.sel_mtg_id]
         if md.empty: st.error("문서를 찾을 수 없습니다.")
         else:
             mtg = md.iloc[0]
-            if not st.session_state.is_edit_mtg:
-                # View mode
-                st.markdown(f"""
-                <div style="background:#151C2A;border:1px solid rgba(140,170,220,0.1);border-radius:20px;padding:28px;margin-bottom:12px;">
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-                        <span style="padding:4px 12px;border-radius:999px;background:rgba(108,156,255,0.12);color:#6C9CFF;font-size:11px;font-weight:700;">📁 {escape(mtg['분류'])}</span>
-                        <span style="padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">📅 {escape(mtg['회의일자'])}</span>
-                        <span style="padding:4px 12px;border-radius:999px;background:rgba(140,170,220,0.06);color:#9BAABB;font-size:11px;font-weight:600;">👤 {escape(mtg['작성자'])}</span>
-                    </div>
-                    <h2 style="margin:0 0 16px 0;font-size:24px;">{escape(mtg['제목'])}</h2>
-                """, unsafe_allow_html=True)
+            
+            # Notion-style Header
+            st.markdown(f"""
+            <div style="background:var(--sf-raised);border:1px solid var(--bd-default);border-radius:24px;padding:40px;margin-bottom:24px;box-shadow:var(--sh-md);">
+                <div style="font-size:48px;margin-bottom:16px;">📄</div>
+                <h1 style="margin:0 0 24px 0;font-size:36px;font-weight:900;letter-spacing:-0.03em;line-height:1.2;">{escape(mtg['제목'])}</h1>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--bd-default);">
+                    <span style="display:flex;align-items:center;gap:6px;color:var(--tx-secondary);font-size:13px;font-weight:600;"><span style="color:#6C9CFF;">📁</span> {escape(mtg['분류'])}</span>
+                    <span style="display:flex;align-items:center;gap:6px;color:var(--tx-secondary);font-size:13px;font-weight:600;"><span style="color:#5EEAA0;">📅</span> {escape(mtg['회의일자'])}</span>
+                    <span style="display:flex;align-items:center;gap:6px;color:var(--tx-secondary);font-size:13px;font-weight:600;"><span style="color:#FFCB57;">👤</span> {escape(mtg['작성자'])}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-                # Show linked items
-                lt = str(mtg.get("linked_tasks","")).strip()
-                la = str(mtg.get("linked_agendas","")).strip()
-                if lt or la:
-                    links_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;'>"
-                    if lt:
-                        for t in lt.split(","):
-                            if t.strip(): links_html += f"<span style='padding:3px 10px;border-radius:999px;background:rgba(108,156,255,0.1);color:#6C9CFF;font-size:10px;font-weight:700;border:1px solid rgba(108,156,255,0.2);'>📋 {escape(t.strip())}</span>"
-                    if la:
-                        for a in la.split(","):
-                            if a.strip(): links_html += f"<span style='padding:3px 10px;border-radius:999px;background:rgba(255,126,179,0.1);color:#FF7EB3;font-size:10px;font-weight:700;border:1px solid rgba(255,126,179,0.2);'>🗂️ {escape(a.strip())}</span>"
-                    links_html += "</div>"
-                    st.markdown(links_html, unsafe_allow_html=True)
+            # Show linked items (Relations)
+            lt = str(mtg.get("linked_tasks","")).strip()
+            la = str(mtg.get("linked_agendas","")).strip()
+            if lt or la:
+                links_html = "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;'>"
+                if lt:
+                    for t in lt.split(","):
+                        if t.strip(): links_html += f"<span style='display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;background:rgba(108,156,255,0.1);color:#6C9CFF;font-size:12px;font-weight:700;border:1px solid rgba(108,156,255,0.2);'>📋 {escape(t.strip())}</span>"
+                if la:
+                    for a in la.split(","):
+                        if a.strip(): links_html += f"<span style='display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;background:rgba(255,126,179,0.1);color:#FF7EB3;font-size:12px;font-weight:700;border:1px solid rgba(255,126,179,0.2);'>🗂️ {escape(a.strip())}</span>"
+                links_html += "</div>"
+                st.markdown(links_html, unsafe_allow_html=True)
 
-                st.markdown(f"<div style='border-top:1px solid rgba(140,170,220,0.07);padding-top:16px;'></div></div>", unsafe_allow_html=True)
-                st.markdown(mtg['내용'].replace('\n', '  \n'))
+            # Document Body
+            st.markdown(f"<div style='font-size:15px;line-height:1.8;padding-bottom:40px;'>", unsafe_allow_html=True)
+            st.markdown(mtg['내용'].replace('\n', '  \n'))
+            st.markdown("</div></div>", unsafe_allow_html=True)
 
-                act1, act2, act3 = st.columns([1, 1, 4])
-                with act1:
-                    if can_edit() and st.button("✏️ 수정", use_container_width=True):
-                        st.session_state.is_edit_mtg = True; st.rerun()
-                with act2:
-                    if can_edit() and st.button("🗑️ 삭제", use_container_width=True):
-                        keep = meetings_df[meetings_df["id"]!=mtg['id']].reset_index(drop=True)
-                        st.session_state.meetings_df = keep; save_df_to_gsheet(keep, WORKSHEET_MEETINGS)
-                        st.session_state.sel_mtg_id = None; st.rerun()
-            else:
-                # Edit mode
-                st.markdown("### ✏️ 문서 수정")
-                with st.form("edit_doc"):
-                    f_title = st.text_input("제목", value=mtg['제목'])
-                    c1, c2, c3 = st.columns(3)
-                    with c1: f_folder = st.selectbox("분류", ["전체 회의"]+TEAM_OPTIONS, index=(["전체 회의"]+TEAM_OPTIONS).index(mtg['분류']) if mtg['분류'] in ["전체 회의"]+TEAM_OPTIONS else 0)
-                    with c2: f_date = st.date_input("날짜", value=pd.to_datetime(mtg['회의일자']).date())
-                    with c3: f_author = st.text_input("작성자", value=mtg['작성자'])
-
-                    st.markdown("**📎 관련 항목**")
-                    lc1, lc2 = st.columns(2)
-                    existing_lt = [t.strip() for t in str(mtg.get("linked_tasks","")).split(",") if t.strip()]
-                    existing_la = [a.strip() for a in str(mtg.get("linked_agendas","")).split(",") if a.strip()]
-                    with lc1: linked_tasks = st.multiselect("관련 업무", tasks_df["업무명"].tolist() if not tasks_df.empty else [], default=[t for t in existing_lt if t in tasks_df["업무명"].tolist()])
-                    with lc2: linked_agendas = st.multiselect("관련 안건", agenda_df["안건명"].tolist() if not agenda_df.empty else [], default=[a for a in existing_la if a in agenda_df["안건명"].tolist()])
-
-                    f_content = st.text_area("내용", value=mtg['내용'], height=450)
-                    bc1, bc2 = st.columns([1, 3])
-                    with bc1:
-                        if st.form_submit_button("💾 저장", type="primary"):
-                            idx = meetings_df.index[meetings_df["id"]==mtg['id']].tolist()[0]
-                            meetings_df.at[idx,'제목'] = f_title; meetings_df.at[idx,'분류'] = f_folder
-                            meetings_df.at[idx,'회의일자'] = safe_date_str(f_date); meetings_df.at[idx,'작성자'] = f_author
-                            meetings_df.at[idx,'내용'] = f_content
-                            meetings_df.at[idx,'linked_tasks'] = ",".join(linked_tasks)
-                            meetings_df.at[idx,'linked_agendas'] = ",".join(linked_agendas)
-                            st.session_state.meetings_df = meetings_df; save_df_to_gsheet(meetings_df, WORKSHEET_MEETINGS)
-                            st.session_state.is_edit_mtg = False; st.rerun()
-                    with bc2:
-                        if st.form_submit_button("취소"): st.session_state.is_edit_mtg = False; st.rerun()
+            act1, act2, act3 = st.columns([1, 1, 4])
+            with act1:
+                if can_edit() and st.button("✏️ 문서 수정", use_container_width=True, type="primary"):
+                    st.session_state.is_edit_mtg = True; st.rerun()
+            with act2:
+                if can_edit() and st.button("🗑️ 삭제", use_container_width=True):
+                    keep = meetings_df[meetings_df["id"]!=mtg['id']].reset_index(drop=True)
+                    st.session_state.meetings_df = keep; save_df_to_gsheet(keep, WORKSHEET_MEETINGS)
+                    st.session_state.sel_mtg_id = None; st.rerun()
 
 # =========================
 # 🤖 작업 전송
