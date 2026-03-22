@@ -1413,12 +1413,12 @@ elif menu == "📄 문서":
             st.session_state.doc_content = f_content
             
         with prev_col:
-            st.markdown("""<div style="background:#101621;border:1px solid rgba(140,170,220,0.2);border-radius:12px;padding:20px;height:600px;overflow-y:auto;box-shadow:inset 0 2px 10px rgba(0,0,0,0.2);">""", unsafe_allow_html=True)
-            if st.session_state.doc_content.strip():
-                st.markdown(st.session_state.doc_content)
-            else:
-                st.markdown("<div style='color:#6B7B8D;text-align:center;margin-top:200px;'>작성을 시작하면 미리보기가 표시됩니다.</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            preview_container = st.container(height=600)
+            with preview_container:
+                if st.session_state.doc_content.strip():
+                    st.markdown(st.session_state.doc_content)
+                else:
+                    st.markdown("<div style='color:#6B7B8D;text-align:center;margin-top:200px;'>작성을 시작하면 미리보기가 표시됩니다.</div>", unsafe_allow_html=True)
 
         # Save actions
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
