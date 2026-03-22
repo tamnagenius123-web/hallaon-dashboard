@@ -104,7 +104,19 @@ STATUS_COLORS = {
 st.markdown("""
 <style>
 /* ========== RESET & GLOBAL ========== */
-#MainMenu {visibility:hidden;} footer {visibility:hidden;} header {visibility:hidden;}
+#MainMenu {visibility:hidden;} footer {visibility:hidden;}
+
+/* header를 투명하게 만들되, visibility는 유지 (사이드바 토글 버튼 보존) */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    height: auto !important;
+    pointer-events: none !important;
+}
+/* header 안의 버튼만 클릭 가능하도록 */
+header[data-testid="stHeader"] button {
+    pointer-events: auto !important;
+}
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
@@ -239,31 +251,37 @@ section[data-testid="stSidebar"] [data-baseweb="radio"] input:checked + div + la
 }
 
 /* ====== MOBILE SIDEBAR TOGGLE — CRITICAL FIX (Toss mobile UX) ====== */
-/* Make the collapsed sidebar arrow MUCH more visible on mobile */
+/* ====== MOBILE SIDEBAR TOGGLE — CRITICAL FIX ====== */
+/* 사이드바 열기 버튼: 모든 가능한 selector를 커버 */
 button[data-testid="stSidebarCollapsedControl"],
 button[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"] {
-    visibility: visible !important; /* 🚨 부모(header)가 숨겨져도 이 버튼은 무조건 보이도록 강제! */
+[data-testid="stSidebarCollapsedControl"],
+header button[kind="header"],
+header [data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     background: var(--accent) !important;
     border: none !important;
     border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
     width: 40px !important;
     height: 48px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
     box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3) !important;
-    z-index: 99999 !important;
+    z-index: 999999 !important;
     position: fixed !important;
     top: 12px !important;
     left: 0 !important;
+    pointer-events: auto !important;
     transition: all var(--dur-normal) var(--ease-out);
-    animation: sidebar-pulse 3s ease-in-out 2;
+    animation: sidebar-pulse 3s ease-in-out 3;
 }
 button[data-testid="stSidebarCollapsedControl"] svg,
 button[data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapsedControl"] svg {
-    visibility: visible !important; /* 🚨 내부 아이콘도 보이도록 강제 */
+    visibility: visible !important;
+    opacity: 1 !important;
     color: var(--tx-inverse) !important;
     fill: var(--tx-inverse) !important;
     width: 20px !important;
@@ -277,6 +295,33 @@ button[data-testid="stSidebarCollapsedControl"]:hover {
     0%,100% { box-shadow: var(--sh-md), 0 0 16px rgba(108,156,255,0.3); }
     50% { box-shadow: var(--sh-lg), 0 0 28px rgba(108,156,255,0.6); }
 }
+
+/* ====== 사이드바 닫기 버튼도 명확하게 ====== */
+section[data-testid="stSidebar"] button[data-testid="stSidebarNavCollapseButton"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNavCollapseButton"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: flex !important;
+    background: var(--sf-overlay) !important;
+    border: 1px solid var(--bd-default) !important;
+    border-radius: var(--r-md) !important;
+    color: var(--tx-primary) !important;
+    min-height: 40px !important;
+    min-width: 40px !important;
+}
+
+/* 모바일에서 사이드바 열렸을 때 닫기(X) 버튼 */
+section[data-testid="stSidebar"] button[kind="header"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: flex !important;
+    pointer-events: auto !important;
+    background: var(--sf-overlay) !important;
+    border-radius: var(--r-md) !important;
+    min-height: 44px !important;
+    min-width: 44px !important;
+}
+
 
 /* ========== METRIC CARDS (Monday Vibe card style) ========== */
 div[data-testid="metric-container"] {
@@ -585,7 +630,7 @@ div[data-testid="stToast"] {
     .stApp > div > div > div > div { padding-left: 8px !important; padding-right: 8px !important; }
 }
 
-/* Mobile (≤ 768px) — Toss mobile-first principles */
+/* Mobile (≤ 768px) */
 @media (max-width: 768px) {
     h1 { font-size: 22px !important; }
     h2 { font-size: 18px !important; }
@@ -593,15 +638,23 @@ div[data-testid="stToast"] {
     div[data-testid="stMetricValue"] { font-size: 24px !important; }
     div[data-testid="metric-container"] { padding: var(--sp-4) !important; }
     
-    /* Ensure sidebar toggle button is unmissable on mobile */
+    /* 모바일에서 사이드바 토글 더 크고 눈에 띄게 */
     button[data-testid="stSidebarCollapsedControl"],
     button[data-testid="collapsedControl"],
     [data-testid="stSidebarCollapsedControl"] {
-        width: 44px !important;
-        height: 52px !important;
+        width: 48px !important;
+        height: 56px !important;
         top: 8px !important;
         border-radius: 0 var(--r-xl) var(--r-xl) 0 !important;
         animation: sidebar-pulse 2s ease-in-out 5 !important;
+        box-shadow: var(--sh-lg), 0 0 24px rgba(108,156,255,0.5) !important;
+    }
+    
+    /* 사이드바가 열렸을 때 전체 화면 덮기 */
+    section[data-testid="stSidebar"] {
+        width: 85vw !important;
+        max-width: 320px !important;
+        z-index: 999999 !important;
     }
     
     /* Touch targets minimum 44px */
@@ -614,10 +667,10 @@ div[data-testid="stToast"] {
         flex-direction: column !important;
     }
     
-    /* Expanders: slightly less padding */
     div[data-testid="stExpander"] summary { padding: var(--sp-3) var(--sp-4) !important; }
     div[data-testid="stExpanderDetails"] { padding: var(--sp-3) var(--sp-4) !important; }
 }
+
 
 /* Small mobile (≤ 480px) */
 @media (max-width: 480px) {
